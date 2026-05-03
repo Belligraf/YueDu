@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chinese Reader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="bg-gray-50">
+    <div class="max-w-4xl mx-auto p-6">
+        <h1 class="text-3xl font-bold text-center mb-8">Chinese Reader</h1>
+
+        <textarea id="inputText" rows="8"
+            class="w-full p-4 border rounded-lg focus:outline-none focus:border-blue-500"
+            placeholder="Вставьте сюда китайский текст..."></textarea>
+
+        <button onclick="processText()"
+            class="mt-4 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
+            Разбить на слова
+        </button>
+
+        <div id="result" class="mt-8 leading-relaxed text-xl"></div>
+    </div>
+
+    <!-- Попап с переводом -->
+    <div id="popup" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center">
+        <div class="bg-white p-6 rounded-xl max-w-md w-full mx-4">
+            <h2 id="popupWord" class="text-2xl font-bold"></h2>
+            <p id="popupPinyin" class="text-gray-600 mt-1"></p>
+            <p id="popupTranslation" class="mt-4 text-lg"></p>
+            <button onclick="closePopup()"
+                class="mt-6 bg-gray-200 px-4 py-2 rounded-lg">
+                Закрыть
+            </button>
+        </div>
+    </div>
+
+    <script src="/static/js/script.js"></script>
+</body>
+</html>
