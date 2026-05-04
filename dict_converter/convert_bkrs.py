@@ -1,6 +1,5 @@
 import re
-import database
-from models import models
+from app import models, database
 from sqlalchemy.orm import Session
 
 # Укажите путь к вашему распакованному файлу БКРС
