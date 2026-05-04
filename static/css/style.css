@@ -1,0 +1,43 @@
+/* Сохраняем структуру текста БКРС */
+#popupTranslation {
+    white-space: pre-wrap; 
+    line-height: 1.6;
+}
+
+/* Стили для разделов (I, II, III) */
+#popupTranslation b {
+    display: block;
+    color: #1a365d; /* Темно-синий */
+    font-size: 1.1em;
+    margin-top: 1rem;
+    margin-bottom: 0.25rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+/* Стили для пояснений в курсиве */
+#popupTranslation i {
+    color: #4a5568;
+    background-color: #f7fafc;
+    padding: 0 2px;
+    border-radius: 4px;
+}
+
+/* Эффект при наведении на китайские слова в тексте */
+#result span {
+    transition: all 0.2s;
+    display: inline-block;
+    margin-bottom: 4px;
+}
+
+#popupTranslation {
+    white-space: pre-wrap !important; /* Это заставит браузер видеть переносы строк */
+    display: block;
+    line-height: 1.6;
+}
+
+#popupTranslation b {
+    display: block; /* Каждый раздел (I, II, III) будет с новой строки */
+    margin-top: 10px;
+    font-weight: bold;
+    color: #2d3748;
+}

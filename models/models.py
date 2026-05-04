@@ -6,7 +6,7 @@ class Dictionary(Base):
     __tablename__ = "dictionary"
 
     id = Column(Integer, primary_key=True, index=True)
-    word = Column(String, unique=True, index=True, nullable=False)
+    word = Column(String, index=True, nullable=False)
     pinyin = Column(String)
     translation = Column(Text)
     examples = Column(Text)

@@ -24,15 +24,22 @@ app = FastAPI(title="Chinese Reader", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+from pydantic import BaseModel  # Добавьте этот импорт
+
+# Создайте модель данных
+class TextData(BaseModel):
+    text: str
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
-
+    return templates.TemplateResponse(
+        request=request, name="index.html", context={}
+    )
 
 @app.post("/segment")
-async def segment_text(text: str):
-    words = list(jieba.cut(text.strip(), cut_all=False))
+async def segment_text(data: TextData): # Ожидаем JSON модель
+    # Теперь текст лежит внутри data.text
+    words = list(jieba.cut(data.text.strip(), cut_all=False))
     return {"words": [w for w in words if w.strip()]}
 
 
@@ -47,3 +54,13 @@ async def translate(word: str, db: Session = Depends(database.get_db)):
             "examples": result.examples
         }
     return {"pinyin": "", "translation": "Перевод не найден", "examples": ""}
+
+
+@app.get("/check_db")
+async def check_db(db: Session = Depends(database.get_db)):
+    count = db.query(models.Dictionary).count()
+    first_row = db.query(models.Dictionary).first()
+    return {
+        "total_records": count,
+        "first_row": first_row.word if first_row else "База пуста"
+    }
