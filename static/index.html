@@ -5,67 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chinese Reader</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .blur-sm {
-            filter: blur(4px);
-            transition: filter 0.3s ease;
-        }
-        .word {
-            transition: all 0.2s ease;
-            cursor: pointer;
-            display: inline-block;
-            padding: 2px 4px;
-            margin: 0 1px;
-            border-radius: 6px;
-            position: relative;
-        }
-        .word:hover {
-            background-color: #fef08a;
-            transform: scale(1.02);
-        }
-        .word.matched {
-            border-bottom: 2px solid #10b981;
-            background-color: #d1fae5;
-        }
-        .word.matched:hover {
-            background-color: #a7f3d0;
-        }
-        .hidden {
-            display: none;
-        }
-        .tab-btn {
-            transition: all 0.2s ease;
-        }
-        .tab-active {
-            background-color: #3b82f6 !important;
-            color: white !important;
-        }
-        .library-item:hover {
-            background-color: #f3f4f6;
-            transform: translateX(4px);
-        }
-        .library-item-active {
-            background-color: #dbeafe;
-            border-color: #3b82f6;
-        }
-        .match-line {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 8px;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        .match-line:hover {
-            background-color: #f9fafb;
-        }
-        .preserve-whitespace {
-            white-space: pre-wrap;
-            word-wrap: break-word;
-        }
-    </style>
+    <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body class="bg-gray-50">
-    <!-- Навигация по вкладкам -->
+
+    <!-- ВКЛАДКИ -->
     <div class="max-w-7xl mx-auto pt-6 px-6">
         <div class="flex gap-4 mb-6">
             <button id="tab-simple-btn" onclick="showTab('simple')"
@@ -83,125 +27,15 @@
         </div>
     </div>
 
-    <!-- ========== ПРОСТОЙ РЕЖИМ ========== -->
-    <div id="simple-mode" class="max-w-4xl mx-auto p-6">
-        <h1 class="text-3xl font-bold text-center mb-8">Chinese Reader</h1>
+    <!-- КОНТЕНТ ВКЛАДОК (ЗАГРУЗИТСЯ АВТОМАТИЧЕСКИ) -->
+    <div id="content-container"></div>
 
-        <div class="bg-white rounded-lg shadow p-4 mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-                📝 Китайский текст:
-            </label>
-            <textarea id="inputText" rows="8"
-                class="w-full p-3 border rounded-lg focus:outline-none focus:border-blue-500 font-mono"
-                placeholder="Вставьте сюда китайский текст..."></textarea>
-        </div>
-
-        <div class="bg-white rounded-lg shadow p-4 mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-                🌐 Перевод (можно разбить на фразы через / для синхронизации):
-            </label>
-            <textarea id="inputTranslation" rows="6"
-                class="w-full p-3 border rounded-lg focus:outline-none focus:border-blue-500 font-mono"
-                placeholder="Введите перевод, для синхронизации используйте / для разделения фраз..."></textarea>
-        </div>
-
-        <div class="flex gap-3">
-            <button onclick="processText()"
-                class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
-                🔄 Разбить на слова
-            </button>
-            <button onclick="saveToLibrary()"
-                class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors">
-                💾 Сохранить в библиотеку
-            </button>
-        </div>
-
-        <div id="result" class="mt-8 leading-relaxed text-xl bg-white p-6 rounded-lg min-h-[200px] shadow preserve-whitespace">
-            <!-- Здесь будут слова -->
-        </div>
-    </div>
-
-    <!-- ========== ПАРАЛЛЕЛЬНЫЙ РЕЖИМ ========== -->
-    <div id="parallel-mode" class="hidden max-w-7xl mx-auto p-6">
-        <div class="flex justify-between items-center mb-6">
-            <div>
-                <h2 id="current-title" class="text-2xl font-bold text-gray-800">Параллельный режим</h2>
-                <p id="current-id" class="text-sm text-gray-500 mt-1"></p>
-            </div>
-            <div class="flex gap-3">
-                <button onclick="goToMatchMode()"
-                    class="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors">
-                    🔗 Сопоставить слова
-                </button>
-                <button id="blurBtn" onclick="toggleBlur()"
-                    class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 font-semibold transition-colors">
-                    👁️ Скрыть перевод
-                </button>
-                <button onclick="saveToLibrary()"
-                    class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                    💾 Сохранить
-                </button>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-8">
-            <div>
-                <h3 class="font-bold text-lg mb-3 text-gray-700">📖 Оригинал:</h3>
-                <div id="original-text" class="bg-white p-6 rounded-xl shadow-lg leading-loose text-xl min-h-[500px] preserve-whitespace">
-                </div>
-            </div>
-            <div>
-                <h3 class="font-bold text-lg mb-3 text-gray-700">🌍 Перевод:</h3>
-                <div id="translation-text" class="bg-white p-6 rounded-xl shadow-lg leading-loose text-lg transition-all duration-300 min-h-[500px] preserve-whitespace">
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ========== РЕЖИМ СОПОСТАВЛЕНИЯ ========== -->
-    <div id="match-mode" class="hidden max-w-7xl mx-auto p-6">
-        <div class="mb-6">
-            <h2 class="text-2xl font-bold text-gray-800 mb-2">🔗 Сопоставление слов</h2>
-            <p class="text-gray-600">Кликните на китайское слово, затем на фразу перевода, чтобы связать их</p>
-        </div>
-
-        <div class="grid grid-cols-2 gap-8">
-            <div>
-                <h3 class="font-bold text-lg mb-3 text-gray-700">📖 Китайский текст (кликни на слово):</h3>
-                <div id="match-original" class="bg-white p-6 rounded-xl shadow-lg leading-loose text-xl min-h-[500px] preserve-whitespace">
-                </div>
-            </div>
-            <div>
-                <h3 class="font-bold text-lg mb-3 text-gray-700">🌍 Перевод (кликни на фразу):</h3>
-                <div id="match-translation" class="bg-white p-6 rounded-xl shadow-lg leading-loose text-lg min-h-[500px] preserve-whitespace">
-                </div>
-            </div>
-        </div>
-
-        <div class="mt-6 bg-white rounded-xl shadow-lg p-4">
-            <h3 class="font-bold text-lg mb-3">📋 Сопоставления:</h3>
-            <div id="matches-list" class="space-y-2 max-h-64 overflow-y-auto">
-                <div class="text-gray-500 text-center">Нет сопоставлений</div>
-            </div>
-            <div class="flex gap-3 mt-4">
-                <button onclick="saveMatches()" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700">
-                    💾 Сохранить сопоставления
-                </button>
-                <button onclick="clearMatches()" class="bg-red-500 text-white px-6 py-2 rounded-lg hover:bg-red-600">
-                    🗑️ Очистить все
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Правая панель библиотеки -->
-    <div class="fixed right-0 top-0 h-full w-80 bg-white shadow-xl z-40 transform transition-transform duration-300" id="libraryPanel">
+    <!-- БИБЛИОТЕКА СПРАВА -->
+    <div class="fixed right-0 top-0 h-full w-80 bg-white shadow-xl z-40" id="libraryPanel">
         <div class="p-4 border-b">
             <div class="flex justify-between items-center">
                 <h3 class="font-bold text-lg text-gray-800">📚 Моя библиотека</h3>
-                <button onclick="loadLibrary()" class="text-blue-500 hover:text-blue-600 text-sm">
-                    🔄 Обновить
-                </button>
+                <button onclick="loadLibrary()" class="text-blue-500 text-sm">🔄 Обновить</button>
             </div>
             <p class="text-xs text-gray-500 mt-1">Кликни для загрузки</p>
         </div>
@@ -210,7 +44,7 @@
         </div>
     </div>
 
-    <!-- Попап с переводом слова -->
+    <!-- ПОПАП ПЕРЕВОДА -->
     <div id="popup" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
         <div class="bg-white p-6 rounded-xl max-w-2xl w-full mx-4 shadow-2xl flex flex-col max-h-[80vh]">
             <div class="flex justify-between items-start mb-2">
@@ -220,15 +54,34 @@
                 </div>
                 <button onclick="closePopup()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
             </div>
-            <div id="popupTranslation" class="mt-4 overflow-y-auto pr-2 text-gray-800 border-t pt-4">
-            </div>
-            <button onclick="closePopup()"
-                class="mt-6 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 self-end">
+            <div id="popupTranslation" class="mt-4 overflow-y-auto pr-2 text-gray-800 border-t pt-4"></div>
+            <button onclick="closePopup()" class="mt-6 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 self-end">
                 Понятно
             </button>
         </div>
     </div>
 
-    <script src="static/js/script.js"></script>
+    <!-- JS МОДУЛИ -->
+    <script src="/static/js/core.js"></script>
+    <script src="/static/js/popup.js"></script>
+    <script src="/static/js/matches.js"></script>
+    <script src="/static/js/modes.js"></script>
+    <script src="/static/js/library.js"></script>
+
+    <!-- Автозагрузка вкладок -->
+    <script>
+    async function loadTabContent(tabName) {
+        const container = document.getElementById('content-container');
+        const res = await fetch(`/static/modes/${tabName}.html`);
+        const html = await res.text();
+        container.innerHTML = html;
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadTabContent('simple');
+        loadLibrary();
+        console.log("✅ Готово!");
+    });
+    </script>
 </body>
 </html>

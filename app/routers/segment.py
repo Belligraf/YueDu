@@ -1,20 +1,56 @@
-# app/routers/segment.py
 from fastapi import APIRouter
-from pydantic import BaseModel
-from typing import List
 import jieba
+import re
 
-router = APIRouter(prefix="/api/segment", tags=["segment"])
+router = APIRouter(
+    prefix="/api/segment",
+    tags=["segment"]
+)
 
-class TextRequest(BaseModel):
-    text: str
+# Регулярка: только китайские иероглифы
+CHINESE_REGEX = re.compile(r'[\u4e00-\u9fff]')
+# Все символы, которые нужно оставить как отдельные токены
+PUNCTUATION = set('，。！？；：""''（）【】,.!?;:"\'()[]')
 
-class SegmentResponse(BaseModel):
-    words: List[str]
-    original: str
 
-@router.post("/segment", response_model=SegmentResponse)
-async def segment_text(request: TextRequest):
-    # Сегментируем китайский текст
-    words = list(jieba.cut(request.text))
-    return SegmentResponse(words=words, original=request.text)
+def split_chinese_text_correctly(text: str):
+    """
+    ИСПРАВЛЕННЫЙ АЛГОРИТМ РАЗБИВКИ
+    - Китайские слова отдельно
+    - Пунктуация отдельно
+    - Пробелы и переносы сохраняются
+    - НЕ разбивает иерогливы по одному (использует jieba)
+    """
+    tokens = []
+    words = jieba.lcut(text)  # Разбиваем на слова через jieba
+
+    for word in words:
+        if not word:
+            continue
+        # Если это пунктуация — добавляем как есть
+        if word in PUNCTUATION or word.isspace():
+            tokens.append(word)
+        # Если это китайское слово — добавляем целиком
+        elif CHINESE_REGEX.search(word):
+            tokens.append(word)
+        # Остальной текст (цифры, латинка) — как есть
+        else:
+            tokens.append(word)
+    return tokens
+
+
+@router.post("/segment")
+def segment_text(data: dict):
+    text = data.get("text", "")
+    if not text:
+        return {"words": []}
+
+    segmented = split_chinese_text_correctly(text)
+    # Фильтруем пустые строки
+    segmented = [t for t in segmented if t.strip() or t in PUNCTUATION]
+
+    return {
+        "original": text,
+        "words": segmented,
+        "count": len(segmented)
+    }

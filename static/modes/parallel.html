@@ -1,0 +1,33 @@
+<div id="parallel-mode" class="max-w-7xl mx-auto p-6">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h2 id="current-title" class="text-2xl font-bold text-gray-800">Параллельный режим</h2>
+            <p id="current-id" class="text-sm text-gray-500 mt-1"></p>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="showTab('match')"
+                class="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600">
+                🔗 Сопоставить слова
+            </button>
+            <button id="blurBtn" onclick="toggleBlur()"
+                class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">
+                👁️ Скрыть перевод
+            </button>
+            <button onclick="saveToLibrary()"
+                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                💾 Сохранить
+            </button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-8">
+        <div>
+            <h3 class="font-bold text-lg mb-3">📖 Оригинал:</h3>
+            <div id="original-text" class="bg-white p-6 rounded-xl shadow-lg leading-loose text-xl min-h-[500px] preserve-whitespace"></div>
+        </div>
+        <div>
+            <h3 class="font-bold text-lg mb-3">🌍 Перевод:</h3>
+            <div id="translation-text" class="bg-white p-6 rounded-xl shadow-lg leading-loose text-lg min-h-[500px] preserve-whitespace"></div>
+        </div>
+    </div>
+</div>

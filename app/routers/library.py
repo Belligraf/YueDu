@@ -1,201 +1,95 @@
-from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from ..database import get_db
+from ..models import UserText, Word, Translation, word_translation_association
 
-from app.database import get_db
-from app.models import UserText, Word, Translation, word_translation_association
-
-router = APIRouter(prefix="/api/library", tags=["library"])
-
-
-class TextCreate(BaseModel):
-    title: str
-    content: str
-    translation: str
+router = APIRouter(
+    prefix="/api/library",
+    tags=["library"]
+)
 
 
-class TextOut(TextCreate):
-    id: int
-
-    class Config:
-        from_attributes = True
-
-
-class TextUpdate(BaseModel):
-    title: Optional[str] = None
-    content: Optional[str] = None
-    translation: Optional[str] = None
-
-
-class WordMatch(BaseModel):
-    word_id: int
-    translation_ids: List[int]
-
-
-class MatchData(BaseModel):
-    text_id: int
-    words: List[dict]  # [{word: "你好", position: 0, translation_ids: [0,1]}]
-    translations: List[dict]  # [{phrase: "Здравствуйте", position: 0}]
-    associations: List[dict]  # [{word_id: 0, translation_ids: [0,1]}]
-
-
-@router.post("/", response_model=TextOut)
-def save_text(text: TextCreate, db: Session = Depends(get_db)):
-    db_text = UserText(**text.dict())
-    db.add(db_text)
+# CRUD для текстов
+@router.post("/")
+def create_text(text_data: dict, db: Session = Depends(get_db)):
+    new_text = UserText(
+        title=text_data.get("title", "Без названия"),
+        content=text_data.get("content", ""),
+        translation=text_data.get("translation", "")
+    )
+    db.add(new_text)
     db.commit()
-    db.refresh(db_text)
-    return db_text
+    db.refresh(new_text)
+    return new_text
 
 
-@router.get("/", response_model=List[TextOut])
-def get_library(db: Session = Depends(get_db)):
+@router.get("/")
+def get_all_texts(db: Session = Depends(get_db)):
     return db.query(UserText).all()
 
 
-@router.get("/{text_id}", response_model=TextOut)
-def get_text_by_id(text_id: int, db: Session = Depends(get_db)):
-    text = db.query(UserText).filter(UserText.id == text_id).first()
+@router.get("/{id}")
+def get_text(id: int, db: Session = Depends(get_db)):
+    text = db.query(UserText).filter(UserText.id == id).first()
     if not text:
-        raise HTTPException(status_code=404, detail="Text not found")
+        raise HTTPException(status_code=404, detail="Текст не найден")
     return text
 
 
-@router.put("/{text_id}", response_model=TextOut)
-def update_text(text_id: int, text_update: TextUpdate, db: Session = Depends(get_db)):
-    text = db.query(UserText).filter(UserText.id == text_id).first()
+# --- ЭНДПОИНТ ДЛЯ СОПОСТАВЛЕНИЙ ---
+@router.post("/{id}/matches")
+def save_matches(id: int, match_data: dict, db: Session = Depends(get_db)):
+    """
+    ГЛАВНЫЙ ЭНДПОИНТ ДЛЯ КНОПКИ "СОПОСТАВИТЬ СЛОВА"
+    Сохраняет связи многие-ко-многим
+    """
+    text = db.query(UserText).filter(UserText.id == id).first()
     if not text:
-        raise HTTPException(status_code=404, detail="Text not found")
+        raise HTTPException(status_code=404)
 
-    if text_update.title is not None:
-        text.title = text_update.title
-    if text_update.content is not None:
-        text.content = text_update.content
-    if text_update.translation is not None:
-        text.translation = text_update.translation
+    # Удаляем старые сопоставления
+    db.query(Word).filter(Word.text_id == id).delete()
+    db.query(Translation).filter(Translation.text_id == id).delete()
 
-    db.commit()
-    db.refresh(text)
-    return text
-
-
-@router.delete("/{text_id}")
-def delete_text(text_id: int, db: Session = Depends(get_db)):
-    text = db.query(UserText).filter(UserText.id == text_id).first()
-    if not text:
-        raise HTTPException(status_code=404, detail="Text not found")
-
-    db.delete(text)
-    db.commit()
-    return {"message": "Text deleted successfully"}
-
-
-# НОВЫЕ ЭНДПОИНТЫ ДЛЯ СОПОСТАВЛЕНИЙ
-
-@router.get("/{text_id}/matches")
-def get_matches(text_id: int, db: Session = Depends(get_db)):
-    """Получить все сопоставления для текста"""
-    words = db.query(Word).filter(Word.text_id == text_id).all()
-    translations = db.query(Translation).filter(Translation.text_id == text_id).all()
-
-    result = {
-        "words": [
-            {"id": w.id, "word": w.word, "position": w.position,
-             "translation_ids": [t.id for t in w.translations]}
-            for w in words
-        ],
-        "translations": [
-            {"id": t.id, "phrase": t.phrase, "position": t.position}
-            for t in translations
-        ]
-    }
-    return result
-
-
-@router.post("/{text_id}/matches")
-def save_matches(text_id: int, match_data: MatchData, db: Session = Depends(get_db)):
-    """Сохранить сопоставления для текста"""
-
-    # Удаляем старые связи
-    old_words = db.query(Word).filter(Word.text_id == text_id).all()
-    for word in old_words:
-        word.translations = []
-    db.query(Word).filter(Word.text_id == text_id).delete()
-    db.query(Translation).filter(Translation.text_id == text_id).delete()
-    db.commit()
-
-    # Создаем новые слова
-    words_dict = {}
-    for w in match_data.words:
-        word = Word(
-            text_id=text_id,
-            word=w["word"],
-            position=w["position"]
-        )
-        db.add(word)
+    # Сохраняем слова
+    words = match_data.get("words", [])
+    word_map = {}
+    for idx, w in enumerate(words):
+        db_word = Word(text_id=id, word=w["word"], position=w.get("position", idx))
+        db.add(db_word)
         db.flush()
-        words_dict[w["position"]] = word
+        word_map[idx] = db_word.id
 
-    # Создаем новые переводы
-    translations_dict = {}
-    for t in match_data.translations:
-        translation = Translation(
-            text_id=text_id,
-            phrase=t["phrase"],
-            position=t["position"]
-        )
-        db.add(translation)
+    # Сохраняем переводы
+    translations = match_data.get("translations", [])
+    trans_map = {}
+    for idx, t in enumerate(translations):
+        db_trans = Translation(text_id=id, phrase=t["phrase"], position=t.get("position", idx))
+        db.add(db_trans)
         db.flush()
-        translations_dict[t["position"]] = translation
+        trans_map[idx] = db_trans.id
 
-    # Создаем связи многие ко многим
-    for assoc in match_data.associations:
-        word = words_dict.get(assoc["word_id"])
-        if word:
-            translation_ids = assoc["translation_ids"]
-            for trans_id in translation_ids:
-                translation = translations_dict.get(trans_id)
-                if translation:
-                    word.translations.append(translation)
+    # Связи многие-ко-многим
+    associations = match_data.get("associations", [])
+    for assoc in associations:
+        word_id = word_map[assoc["word_id"]]
+        for tid in assoc["translation_ids"]:
+            trans_id = trans_map[tid]
+            db.execute(
+                word_translation_association.insert().values(word_id=word_id, translation_id=trans_id)
+            )
 
     db.commit()
-    return {"message": f"Saved {len(match_data.associations)} associations"}
+    return {"status": "success", "message": "Сопоставления сохранены!"}
 
 
-@router.get("/{text_id}/translate_word/{word}")
-def translate_word_in_text(text_id: int, word: str, db: Session = Depends(get_db)):
-    """Перевод слова с учетом сопоставлений в тексте"""
-
-    # Ищем слово в сопоставлениях этого текста
-    db_word = db.query(Word).filter(
-        Word.text_id == text_id,
-        Word.word == word
-    ).first()
-
-    if db_word and db_word.translations:
-        translations = [t.phrase for t in db_word.translations]
-        return {
-            "word": word,
-            "translations": translations,
-            "pinyin": "",
-            "from_matches": True
-        }
-
-    # Если нет, ищем в общем словаре
-    from app.models import Dictionary
-    dict_entry = db.query(Dictionary).filter(Dictionary.word == word).first()
-    if dict_entry:
-        return {
-            "word": word,
-            "translations": [dict_entry.translation],
-            "pinyin": dict_entry.pinyin or "",
-            "from_matches": False
-        }
+@router.get("/{id}/matches")
+def get_matches(id: int, db: Session = Depends(get_db)):
+    """Получить сохраненные сопоставления"""
+    words = db.query(Word).filter(Word.text_id == id).order_by(Word.position).all()
+    translations = db.query(Translation).filter(Translation.text_id == id).order_by(Translation.position).all()
 
     return {
-        "word": word,
-        "translations": [],
-        "pinyin": "",
-        "from_matches": False
+        "words": [{"id": w.id, "word": w.word, "position": w.position} for w in words],
+        "translations": [{"id": t.id, "phrase": t.phrase, "position": t.position} for t in translations]
     }

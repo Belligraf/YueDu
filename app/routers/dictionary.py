@@ -1,68 +1,82 @@
-from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+import json
+import os
+from ..database import get_db
+from ..models import Dictionary
 
-from app.database import get_db
-from app.models import Dictionary
-from pydantic import BaseModel
+router = APIRouter(
+    prefix="/api/dictionary",
+    tags=["dictionary"]
+)
 
-router = APIRouter(prefix="/api/dictionary", tags=["dictionary"])
+# Путь к словарю
+DICT_PATH = os.path.join(os.getcwd(), "dictionary", "zh_ru.json")
 
-
-class DictionaryBase(BaseModel):
-    word: str
-    pinyin: Optional[str] = None
-    translation: str
-    examples: Optional[str] = None
-
-
-class DictionaryOut(DictionaryBase):
-    id: int
-
-    class Config:
-        from_attributes = True
-
-
-@router.get("/search/{query}", response_model=List[DictionaryOut])
-def search_in_dictionary(query: str, db: Session = Depends(get_db)):
-    words = db.query(Dictionary).filter(
-        or_(
-            Dictionary.word.contains(query),
-            Dictionary.translation.contains(query)
-        )
-    ).limit(50).all()
-    return words
+# Загружаем словарь один раз при старте
+try:
+    with open(DICT_PATH, "r", encoding="utf-8") as f:
+        CHINESE_DICT = json.load(f)
+except Exception:
+    CHINESE_DICT = {}
 
 
 @router.get("/translate/{word}")
 def translate_word(word: str, db: Session = Depends(get_db)):
-    dict_entry = db.query(Dictionary).filter(Dictionary.word == word).first()
-
-    if dict_entry:
+    """
+    Перевод слова: сначала из БД, потом из файла
+    ВОЗВРАЩАЕТ ФОРМАТИРОВАННЫЙ ЧИТАЕМЫЙ ПЕРЕВОД
+    """
+    # Поиск в БД
+    db_entry = db.query(Dictionary).filter(Dictionary.word == word).first()
+    if db_entry:
         return {
-            "word": word,
-            "translation": dict_entry.translation,
-            "pinyin": dict_entry.pinyin,
-            "examples": dict_entry.examples
+            "word": db_entry.word,
+            "pinyin": db_entry.pinyin,
+            "translation": db_entry.translation,
+            "formatted": True
         }
 
-    return {
-        "word": word,
-        "translation": None,
-        "pinyin": None,
-        "examples": None
-    }
+    # Поиск в статическом словаре
+    if word in CHINESE_DICT:
+        raw_translation = CHINESE_DICT[word]
+        # ИСПРАВЛЕНИЕ: Разбиваем длинный перевод на читаемые пункты
+        formatted_translation = raw_translation.replace("1)", "\n1)").replace("2)", "\n2)").replace("3)",
+                                                                                                    "\n3)").replace(
+            "4)", "\n4)").replace("5)", "\n5)").replace("6)", "\n6)").replace("7)", "\n7)").replace("8)", "\n8)")
+
+        return {
+            "word": word,
+            "pinyin": "",
+            "translation": formatted_translation,
+            "formatted": True
+        }
+
+    return {"word": word, "translation": "Перевод не найден", "found": False}
 
 
-@router.post("/add", response_model=DictionaryOut)
-def add_to_dictionary(word: DictionaryBase, db: Session = Depends(get_db)):
-    existing = db.query(Dictionary).filter(Dictionary.word == word.word).first()
+@router.get("/search/{query}")
+def search_dictionary(query: str):
+    """Поиск по словарю"""
+    results = []
+    for word, trans in CHINESE_DICT.items():
+        if query in word or query in trans:
+            results.append({"word": word, "translation": trans[:100] + "..."})
+    return results[:20]
+
+
+@router.post("/add")
+def add_word_to_dict(word_data: dict, db: Session = Depends(get_db)):
+    """Добавить слово в словарь БД"""
+    existing = db.query(Dictionary).filter(Dictionary.word == word_data.get("word")).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Word already exists")
+        raise HTTPException(status_code=400, detail="Слово уже существует")
 
-    db_word = Dictionary(**word.model_dump())
-    db.add(db_word)
+    new_word = Dictionary(
+        word=word_data.get("word"),
+        pinyin=word_data.get("pinyin", ""),
+        translation=word_data.get("translation", "")
+    )
+    db.add(new_word)
     db.commit()
-    db.refresh(db_word)
-    return db_word
+    return {"status": "success", "word": new_word.word}

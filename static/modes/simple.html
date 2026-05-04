@@ -1,0 +1,33 @@
+<div id="simple-mode" class="max-w-4xl mx-auto p-6">
+    <h1 class="text-3xl font-bold text-center mb-8">Chinese Reader</h1>
+
+    <div class="bg-white rounded-lg shadow p-4 mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-2">
+            📝 Китайский текст:
+        </label>
+        <textarea id="inputText" rows="8"
+            class="w-full p-3 border rounded-lg focus:outline-none focus:border-blue-500 font-mono"
+            placeholder="Вставьте сюда китайский текст..."></textarea>
+    </div>
+
+    <div class="bg-white rounded-lg shadow p-4 mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-2">
+            🌐 Перевод (через / для синхронизации):
+        </label>
+        <textarea id="inputTranslation" rows="6"
+            class="w-full p-3 border rounded-lg focus:outline-none focus:border-blue-500 font-mono"></textarea>
+    </div>
+
+    <div class="flex gap-3">
+        <button onclick="processText()"
+            class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
+            🔄 Разбить на слова
+        </button>
+        <button onclick="saveToLibrary()"
+            class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700">
+            💾 Сохранить в библиотеку
+        </button>
+    </div>
+
+    <div id="result" class="mt-8 leading-relaxed text-xl bg-white p-6 rounded-lg min-h-[200px] shadow preserve-whitespace"></div>
+</div>
