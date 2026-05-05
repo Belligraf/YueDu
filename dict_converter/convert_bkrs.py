@@ -3,7 +3,7 @@ from app import models, database
 from sqlalchemy.orm import Session
 
 # Укажите путь к вашему распакованному файлу БКРС
-BKRS_FILE_PATH = "C:\\Users\\narut\\Downloads\\dabkrs_260503\\dabkrs_260503"
+BKRS_FILE_PATH = "D:\\BKRS\\dabkrs_260505\\dabkrs_260505"
 
 
 def clean_dsl_to_html(text):
