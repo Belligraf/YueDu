@@ -1,0 +1,147 @@
+/* Базовые стили */
+.preserve-whitespace {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Стили для китайских слов */
+.chinese-word {
+    display: inline-block;
+    padding: 2px 4px;
+    margin: 0 2px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 1.25rem;
+}
+
+.chinese-word:hover {
+    background-color: #fef08a !important;
+    transform: scale(1.05);
+}
+
+.chinese-word.matched {
+    background-color: #d1fae5;
+    border-bottom: 2px solid #10b981;
+}
+
+/* Стили для фраз перевода - КАЖДАЯ ФРАЗА ОТДЕЛЬНО */
+.trans-phrase {
+    display: inline-block;
+    padding: 4px 8px;
+    margin: 2px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+
+.trans-phrase:hover {
+    background-color: #e0f2fe;
+    transform: scale(1.02);
+    border-color: #3b82f6;
+}
+
+.trans-phrase.highlight {
+    background-color: #fef08a !important;
+    font-weight: bold !important;
+    border-color: #eab308;
+    transform: scale(1.02);
+}
+
+/* Вкладки */
+.tab-btn {
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.tab-active {
+    background-color: #3b82f6 !important;
+    color: white !important;
+}
+
+/* Библиотека */
+.library-item {
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.library-item:hover {
+    transform: translateX(4px);
+}
+
+/* Размытие */
+.blur-sm {
+    filter: blur(4px);
+    transition: filter 0.3s ease;
+}
+
+.blur-sm.select-none {
+    user-select: none;
+}
+
+/* Попап */
+#popupTranslation {
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+
+/* Сопоставления */
+.match-word {
+    transition: all 0.2s ease;
+}
+
+.match-word:hover {
+    background-color: #dbeafe;
+    transform: translateX(4px);
+}
+
+/* Стили для слов перевода в параллельном режиме */
+.trans-word {
+    display: inline-block;
+    padding: 4px 8px;
+    margin: 2px;
+    border-radius: 8px;
+    background-color: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.trans-word:hover {
+    background-color: #dcfce7;
+    transform: scale(1.02);
+    border-color: #86efac;
+}
+
+.trans-word.highlight {
+    background-color: #fef08a;
+    font-weight: bold;
+    border-color: #eab308;
+}
+/* Выделенные для связывания слова */
+.chinese-word.selected-for-link {
+    background-color: #fef08a !important;
+    border: 2px solid #eab308 !important;
+    transform: scale(1.05);
+}
+
+.russian-word.selected-for-link {
+    background-color: #fef08a !important;
+    border: 2px solid #eab308 !important;
+    transform: scale(1.02);
+}
+
+/* Слова, у которых есть связи */
+.chinese-word.has-link {
+    background-color: #d1fae5;
+    border-bottom: 2px solid #10b981;
+}
+
+/* Панель управления */
+#link-control-panel {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    backdrop-filter: blur(8px);
+    background-color: rgba(255,255,255,0.95);
+}

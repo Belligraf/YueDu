@@ -7,7 +7,7 @@ from app.routers import segment, library, dictionary  # Добавили diction
 # Создаем таблицы
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Chinese Reader", description="Читалка с переводом китайского")
+app = FastAPI(title="YueDu", description="Читалка с переводом китайского")
 
 # Подключаем роутеры
 app.include_router(segment.router)

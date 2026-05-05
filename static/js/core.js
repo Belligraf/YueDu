@@ -70,6 +70,7 @@ window.renderWithSegmentation = function(container, text, segmentedWords) {
             // Китайское слово
             span.textContent = token;
             span.className = 'chinese-word';
+            span.setAttribute('data-word-idx', wordIndex);
             span.style.display = 'inline';
             span.style.cursor = 'pointer';
             span.style.padding = '2px 4px';
