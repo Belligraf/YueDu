@@ -9,6 +9,9 @@ window.currentWordsArray = [];
 window.currentTransArray = [];
 window.currentMatches = {};
 window.currentSegmentedWords = [];
+window.loadMatches = window.loadMatchesFromDB;
+
+
 
 // ========== РАЗБИВКА КИТАЙСКОГО ТЕКСТА (совместимость) ==========
 window.splitChineseText = function(text) {
@@ -176,4 +179,34 @@ window.escapeHtml = function(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+};
+
+
+window.posColors = {
+    'noun': '#c5e0b4',      // существительное
+    'verb': '#bdd7ee',      // глагол
+    'adj': '#f7c6c6',       // прилагательное
+    'adv': '#ffd966',       // наречие
+    'pron': '#d5a6bd',      // местоимение
+    'num': '#c5d9f1',       // числительное
+    'conj': '#e2efda',      // союз
+    'prep': '#fde9a0',      // предлог
+    'intj': '#f9cb9c',      // междометие
+    'part': '#e6c3c3',      // частица
+    'unknown': 'transparent'
+};
+
+window.applyPosHighlight = function(element, posTag) {
+    if (!element) return;
+    // Убираем старые pos-классы
+    element.classList.forEach(cls => {
+        if (cls.startsWith('pos-')) element.classList.remove(cls);
+    });
+    // Убираем inline background, если он был
+    if (posTag === 'unknown' || !posTag || !window.posColors[posTag]) {
+        element.style.backgroundColor = '';
+        return;
+    }
+    element.style.backgroundColor = window.posColors[posTag];
+    element.classList.add(`pos-${posTag}`);
 };

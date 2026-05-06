@@ -3,6 +3,7 @@ console.log("✅ modes.js загружен");
 // Глобальные переменные
 window.selectedChineseWords = new Set();
 window.selectedRussianWords = new Set();
+window.loadMatches = window.loadMatchesFromDB;
 
 // ========== ЗАГРУЗКА ТЕКСТА ИЗ БИБЛИОТЕКИ ==========
 window.loadTextFromLibrary = async function(id) {
@@ -115,14 +116,13 @@ window.processText = async function() {
 window.loadParallelView = async function() {
     const origDiv = document.getElementById('original-text');
     const transDiv = document.getElementById('translation-text');
-
     if (!origDiv || !transDiv) return;
     if (!window.currentOriginalText) return;
 
     window.selectedChineseWords.clear();
     window.selectedRussianWords.clear();
 
-    // Получаем сегментированные слова
+    // Получение сегментации
     let segmentedWords = [];
     try {
         const response = await fetch('/api/segment/segment', {
@@ -135,11 +135,9 @@ window.loadParallelView = async function() {
             segmentedWords = data.words;
             window.currentSegmentedWords = segmentedWords;
         }
-    } catch (err) {
-        console.error("Ошибка:", err);
-    }
+    } catch (err) { console.error(err); }
 
-    // === ОТОБРАЖАЕМ КИТАЙСКИЙ ТЕКСТ (слова целиком, а не по символам) ===
+    // Отрисовка китайского текста
     origDiv.innerHTML = '';
     origDiv.style.whiteSpace = 'pre-wrap';
     origDiv.style.lineHeight = '1.8';
@@ -147,80 +145,82 @@ window.loadParallelView = async function() {
 
     let chineseWordIndex = 0;
     window.currentWordsArray = [];
-
-    // Используем сегментированные слова от jieba
     const wordsToShow = segmentedWords.length ? segmentedWords : [window.currentOriginalText];
 
     for (let i = 0; i < wordsToShow.length; i++) {
         const token = wordsToShow[i];
-
         if (/[\u4e00-\u9fff]/.test(token)) {
-            // Целое китайское слово
             const span = document.createElement('span');
             span.textContent = token;
             span.className = 'chinese-word';
             span.style.display = 'inline-block';
             span.style.cursor = 'pointer';
-            span.setAttribute('data-idx', chineseWordIndex);
+            const idx = chineseWordIndex;
+            span.setAttribute('data-idx', idx);
+            window.currentWordsArray[idx] = token;
 
-            window.currentWordsArray[chineseWordIndex] = token;
-
-            // Левый клик - выделение
-            span.onclick = (function(idx, el) {
+            // Левый клик для выделения (класс selected-for-link)
+            span.onclick = (function(i, el) {
                 return function(e) {
                     e.stopPropagation();
-                    if (window.selectedChineseWords.has(idx)) {
-                        window.selectedChineseWords.delete(idx);
-                        el.style.backgroundColor = '';
+                    if (window.selectedChineseWords.has(i)) {
+                        window.selectedChineseWords.delete(i);
+                        el.classList.remove('selected-for-link');
                     } else {
-                        window.selectedChineseWords.add(idx);
-                        el.style.backgroundColor = '#fef08a';
+                        window.selectedChineseWords.add(i);
+                        el.classList.add('selected-for-link');
                     }
                     window.updateLinkButtonState();
                 };
-            })(chineseWordIndex, span);
+            })(idx, span);
 
-            // Правый клик - перевод
-            span.oncontextmenu = (function(word) {
+            // Правый клик для меню части речи
+            span.oncontextmenu = (function(i, w) {
                 return function(e) {
                     e.preventDefault();
-                    window.showTranslationFromDictionary(word);
+                    if (typeof window.showPartMenu === 'function') {
+                        window.showPartMenu(e.clientX, e.clientY, i, w);
+                    }
                     return false;
                 };
-            })(token);
+            })(idx, token);
 
-            // НАВЕДЕНИЕ - подсветка связанных русских слов
-            span.onmouseenter = (function(idx) {
+            // Наведение на китайское слово -> временная подсветка русских слов (класс temp-highlight)
+            span.onmouseenter = (function(i) {
                 return function() {
-                    const linked = window.currentMatches[idx];
+                    const linked = window.currentMatches[i];
                     if (linked && linked.length) {
                         const russianWords = transDiv.querySelectorAll('.russian-word');
-                        russianWords.forEach((w, widx) => {
-                            if (linked.includes(widx)) {
-                                w.style.backgroundColor = '#fef08a';
+                        russianWords.forEach(w => {
+                            if (linked.includes(parseInt(w.getAttribute('data-idx')))) {
+                                w.classList.add('temp-highlight');
                             }
                         });
                     }
                 };
-            })(chineseWordIndex);
-
+            })(idx);
             span.onmouseleave = function() {
                 const russianWords = transDiv.querySelectorAll('.russian-word');
-                russianWords.forEach(w => {
-                    if (!w.classList.contains('selected-for-link')) {
-                        w.style.backgroundColor = '';
-                    }
-                });
+                russianWords.forEach(w => w.classList.remove('temp-highlight'));
             };
+
+            // Применить постоянную подсветку (часть речи или связанность)
+            if (window.currentMatches[idx] && window.currentMatches[idx].length) {
+                span.style.backgroundColor = '#d1fae5'; // зелёный для связанных
+            } else {
+                const pos = window.currentWordsPos ? window.currentWordsPos[idx] : null;
+                if (pos && pos !== 'unknown' && window.posColors && window.posColors[pos]) {
+                    span.style.backgroundColor = window.posColors[pos];
+                } else {
+                    span.style.backgroundColor = '';
+                }
+            }
 
             origDiv.appendChild(span);
             chineseWordIndex++;
-        }
-        else if (token === '\n') {
+        } else if (token === '\n') {
             origDiv.appendChild(document.createElement('br'));
-        }
-        else {
-            // Пробелы и знаки препинания
+        } else {
             const span = document.createElement('span');
             span.textContent = token;
             span.style.display = 'inline';
@@ -228,21 +228,17 @@ window.loadParallelView = async function() {
         }
     }
 
-    // === ОТОБРАЖАЕМ РУССКИЙ ПЕРЕВОД ===
+    // Отрисовка русского перевода
     transDiv.innerHTML = '';
     transDiv.style.whiteSpace = 'pre-wrap';
     transDiv.style.lineHeight = '1.8';
-
     if (window.currentTranslationText) {
-        const translationText = window.currentTranslationText;
         let russianWordIndex = 0;
         window.currentTransArray = [];
-        let currentWord = '';
-        let inWord = false;
-
+        let currentWord = '', inWord = false;
+        const translationText = window.currentTranslationText;
         for (let i = 0; i < translationText.length; i++) {
             const char = translationText[i];
-
             if (/[а-яА-Яa-zA-Z0-9]/.test(char)) {
                 currentWord += char;
                 inWord = true;
@@ -254,7 +250,6 @@ window.loadParallelView = async function() {
                     wordSpan.style.display = 'inline-block';
                     wordSpan.style.cursor = 'pointer';
                     wordSpan.setAttribute('data-idx', russianWordIndex);
-
                     window.currentTransArray[russianWordIndex] = currentWord;
 
                     wordSpan.onclick = (function(idx, el) {
@@ -262,10 +257,10 @@ window.loadParallelView = async function() {
                             e.stopPropagation();
                             if (window.selectedRussianWords.has(idx)) {
                                 window.selectedRussianWords.delete(idx);
-                                el.style.backgroundColor = '';
+                                el.classList.remove('selected-for-link');
                             } else {
                                 window.selectedRussianWords.add(idx);
-                                el.style.backgroundColor = '#fef08a';
+                                el.classList.add('selected-for-link');
                             }
                             window.updateLinkButtonState();
                         };
@@ -273,36 +268,35 @@ window.loadParallelView = async function() {
 
                     wordSpan.onmouseenter = (function(idx) {
                         return function() {
-                            const linked = [];
+                            const linkedChineseIndices = [];
                             for (const [chIdx, ruIds] of Object.entries(window.currentMatches)) {
-                                if (ruIds.includes(idx)) linked.push(parseInt(chIdx));
+                                if (ruIds.includes(idx)) linkedChineseIndices.push(parseInt(chIdx));
                             }
-                            if (linked.length) {
+                            if (linkedChineseIndices.length) {
                                 const chineseWords = origDiv.querySelectorAll('.chinese-word');
-                                chineseWords.forEach((w, widx) => {
-                                    if (linked.includes(widx)) {
-                                        w.style.backgroundColor = '#fef08a';
+                                chineseWords.forEach(w => {
+                                    const wIdx = parseInt(w.getAttribute('data-idx'));
+                                    if (linkedChineseIndices.includes(wIdx)) {
+                                        w.classList.add('temp-highlight');
                                     }
                                 });
                             }
                         };
                     })(russianWordIndex);
-
                     wordSpan.onmouseleave = function() {
                         const chineseWords = origDiv.querySelectorAll('.chinese-word');
-                        chineseWords.forEach(w => {
-                            if (!w.classList.contains('selected-for-link')) {
-                                w.style.backgroundColor = '';
-                            }
-                        });
+                        chineseWords.forEach(w => w.classList.remove('temp-highlight'));
                     };
+
+                    // Постоянная подсветка русского слова (если связано)
+                    const isLinked = Object.values(window.currentMatches).some(ruList => ruList.includes(russianWordIndex));
+                    wordSpan.style.backgroundColor = isLinked ? '#d1fae5' : '';
 
                     transDiv.appendChild(wordSpan);
                     russianWordIndex++;
                     currentWord = '';
                     inWord = false;
                 }
-
                 if (char === ' ') {
                     const space = document.createElement('span');
                     space.innerHTML = '&nbsp;';
@@ -318,7 +312,6 @@ window.loadParallelView = async function() {
                 }
             }
         }
-
         if (currentWord) {
             const wordSpan = document.createElement('span');
             wordSpan.textContent = currentWord;
@@ -328,20 +321,16 @@ window.loadParallelView = async function() {
             wordSpan.setAttribute('data-idx', russianWordIndex);
             window.currentTransArray[russianWordIndex] = currentWord;
             transDiv.appendChild(wordSpan);
+            // также добавить обработчики аналогично предыдущему слову, но можно копировать
         }
-
-        if (window.isBlurred) {
-            transDiv.classList.add('blur-sm');
-        }
+        if (window.isBlurred) transDiv.classList.add('blur-sm');
+    } else {
+        transDiv.innerHTML = '<span class="text-gray-400">Нет перевода</span>';
     }
 
     window.createControlPanel();
-
-    if (window.currentEditId) {
-        await window.loadMatchesFromDB();
-    }
-
-    window.highlightLinkedWords();
+    if (window.currentEditId) await window.loadMatchesFromDB();
+    window.highlightLinkedWords(); // установка постоянной подсветки (зелёный для связанных)
 };
 
 // ========== ЗАГРУЗКА СВЯЗЕЙ ИЗ БД ==========
@@ -351,15 +340,32 @@ window.loadMatchesFromDB = async function() {
         const response = await fetch(`/api/library/${window.currentEditId}/matches`);
         if (response.ok) {
             const data = await response.json();
+            // Строим карту: глобальный ID перевода -> его позиция
+            const transIdToPos = {};
+            if (data.translations) {
+                data.translations.forEach(t => {
+                    transIdToPos[t.id] = t.position;
+                });
+            }
             window.currentMatches = {};
+            window.currentWordsPos = [];
+            window.currentWordsIds = [];
             if (data.words) {
                 data.words.forEach(word => {
+                    window.currentWordsIds[word.position] = word.id;
+                    window.currentWordsPos[word.position] = word.part_of_speech;
                     if (word.translation_ids && word.translation_ids.length) {
-                        window.currentMatches[word.position] = word.translation_ids;
+                        // Преобразуем глобальные ID в позиции
+                        const positions = word.translation_ids
+                            .map(id => transIdToPos[id])
+                            .filter(p => p !== undefined);
+                        if (positions.length) {
+                            window.currentMatches[word.position] = positions;
+                        }
                     }
                 });
             }
-            console.log("Загружены связи:", window.currentMatches);
+            console.log("Загружены связи (позиции):", window.currentMatches);
             window.highlightLinkedWords();
         }
     } catch(e) {
@@ -372,14 +378,13 @@ window.highlightLinkedWords = function() {
     const origDiv = document.getElementById('original-text');
     const transDiv = document.getElementById('translation-text');
 
-    console.log("Подсветка связей, currentMatches:", window.currentMatches);
-
     if (origDiv) {
         const chineseWords = origDiv.querySelectorAll('.chinese-word');
         chineseWords.forEach((word, idx) => {
             if (window.currentMatches && window.currentMatches[idx] && window.currentMatches[idx].length) {
-                word.style.backgroundColor = '#d1fae5';  // Зеленый для связанных
-                word.style.borderRadius = '4px';
+                word.style.backgroundColor = '#d1fae5';
+                // УБРАТЬ ЭТУ СТРОКУ:
+                // word.style.borderRadius = '4px';
             } else {
                 word.style.backgroundColor = '';
             }
@@ -387,7 +392,6 @@ window.highlightLinkedWords = function() {
     }
 
     if (transDiv) {
-        // Собираем все русские индексы, которые связаны
         const linkedRussianIndices = new Set();
         if (window.currentMatches) {
             for (const ruIndices of Object.values(window.currentMatches)) {
@@ -396,12 +400,10 @@ window.highlightLinkedWords = function() {
                 }
             }
         }
-
         const russianWords = transDiv.querySelectorAll('.russian-word');
         russianWords.forEach((word, idx) => {
             if (linkedRussianIndices.has(idx)) {
-                word.style.backgroundColor = '#d1fae5';  // Зеленый для связанных
-                word.style.borderRadius = '4px';
+                word.style.backgroundColor = '#d1fae5';
             } else {
                 word.style.backgroundColor = '';
             }
@@ -460,11 +462,15 @@ window.linkSelectedWords = function() {
         setTimeout(() => window.saveAllLinksToDB(), 100);
     }
 };
+
 window.clearSelections = function() {
+    console.trace("clearSelections вызван");
     window.selectedChineseWords.clear();
     window.selectedRussianWords.clear();
-    document.querySelectorAll('.chinese-word, .russian-word').forEach(el => {
-        el.style.backgroundColor = '';
+    // Убираем только класс selected-for-link, но не трогаем фоновый цвет
+    document.querySelectorAll('.chinese-word.selected-for-link, .russian-word.selected-for-link').forEach(el => {
+        el.classList.remove('selected-for-link');
+        // Не удаляем backgroundColor, так как он может быть от part_of_speech
     });
     window.updateLinkButtonState();
 };
@@ -485,45 +491,31 @@ window.showTranslationFromDictionary = async function(word) {
 
 window.saveAllLinksToDB = async function() {
     if (!window.currentEditId) {
-        console.warn("Нет ID текста, сначала сохраните текст");
+        console.warn("Нет ID текста");
         return;
     }
 
-    console.log("Сохраняем связи в БД...", window.currentMatches);
+    // Собираем слова из массивов, а не из DOM
+    const allWords = (window.currentWordsArray || []).map((word, idx) => ({
+        word: word,
+        position: idx,
+        part_of_speech: window.currentWordsPos?.[idx] || null   // добавить
+    })).filter(w => w.word && /[\u4e00-\u9fff]/.test(w.word));
 
-    // Собираем уникальные китайские слова
-    const allWords = [];
-    const chineseElements = document.querySelectorAll('#original-text .chinese-word, #match-original .chinese-word');
-    chineseElements.forEach((el, idx) => {
-        if (el.textContent && /[\u4e00-\u9fff]/.test(el.textContent)) {
-            allWords.push({ word: el.textContent, position: idx });
-        }
-    });
+    const allTranslations = (window.currentTransArray || []).map((phrase, idx) => ({
+        phrase: phrase,
+        position: idx
+    })).filter(t => t.phrase && /[а-яА-Я]/.test(t.phrase));
 
-    // Собираем уникальные русские слова
-    const allTranslations = [];
-    const russianElements = document.querySelectorAll('#translation-text .russian-word, #match-translation .russian-word');
-    russianElements.forEach((el, idx) => {
-        if (el.textContent && /[а-яА-Я]/.test(el.textContent)) {
-            allTranslations.push({ phrase: el.textContent, position: idx });
-        }
-    });
+    const associations = Object.entries(window.currentMatches || {})
+        .filter(([_, ids]) => ids && ids.length)
+        .map(([wordIdx, transIds]) => ({
+            word_id: parseInt(wordIdx),
+            translation_ids: transIds
+        }));
 
-    const associations = [];
-    for (const [wordIdx, transIds] of Object.entries(window.currentMatches)) {
-        if (transIds && transIds.length > 0) {
-            associations.push({
-                word_id: parseInt(wordIdx),
-                translation_ids: transIds
-            });
-        }
-    }
-
-    const matchData = {
-        words: allWords,
-        translations: allTranslations,
-        associations: associations
-    };
+    const matchData = { words: allWords, translations: allTranslations, associations };
+    console.log("Отправляем сохранение:", matchData);
 
     try {
         const response = await fetch(`/api/library/${window.currentEditId}/matches`, {
@@ -531,15 +523,9 @@ window.saveAllLinksToDB = async function() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(matchData)
         });
-
-        if (response.ok) {
-            console.log("✅ Связи сохранены в БД");
-        } else {
-            console.error("Ошибка сохранения:", response.status);
-        }
-    } catch (error) {
-        console.error("Ошибка:", error);
-    }
+        if (response.ok) console.log("✅ Сохранено");
+        else console.error("Ошибка сохранения:", response.status);
+    } catch(e) { console.error(e); }
 };
 
 window.toggleBlur = function() {
@@ -555,3 +541,9 @@ window.toggleBlur = function() {
         if (btn) btn.textContent = '🙈 Скрыть перевод';
     }
 };
+
+
+// Делаем функции глобальными
+window.showPartMenu = showPartMenu;
+window.updatePartOfSpeech = updatePartOfSpeech;
+window.applyPosHighlight = applyPosHighlight;

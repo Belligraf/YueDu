@@ -29,7 +29,6 @@ class UserText(Base):
     translation = Column(Text)
 
 
-# Новая модель для хранения слов из текста
 class Word(Base):
     __tablename__ = "words"
 
@@ -43,7 +42,7 @@ class Word(Base):
 
     # Связь многие ко многим с переводами
     translations = relationship("Translation", secondary=word_translation_association, back_populates="words")
-
+    part_of_speech = Column(String(50), nullable=True)
 
 # Новая модель для хранения фраз перевода
 class Translation(Base):

@@ -1,36 +1,41 @@
-
-
-/* Базовые стили */
+/* Убираем все декоративные элементы */
 .chinese-word, .russian-word {
     display: inline-block;
     cursor: pointer;
-    transition: all 0.2s ease;
-    padding: 2px 4px;
-    margin: 0 1px;
-    border-radius: 4px;
+    transition: background-color 0.2s ease;
 }
 
-/* Выделение при выборе (жёлтый) */
+/* Только для выделения (выбранные слова) */
 .chinese-word.selected-for-link, .russian-word.selected-for-link {
+    background-color: #fef08a;
+}
+
+.russian-word.temp-highlight {
+    background-color: #fef08a !important;
+}
+.chinese-word.temp-highlight {
     background-color: #fef08a !important;
 }
 
-/* Связанные слова (зелёный) */
+/* Только для уже связанных слов */
 .chinese-word.has-link, .russian-word.has-link {
     background-color: #d1fae5;
 }
 
-/* Подсветка при наведении (светло-жёлтый) */
+/* Подсветка при наведении */
 .chinese-word:hover, .russian-word:hover {
     background-color: #fef9c3;
 }
 
-/* Размытие для перевода */
-.blur-sm {
-    filter: blur(4px);
-    transition: filter 0.3s ease;
+/* Убираем всё с обычных слов */
+.chinese-word, .russian-word {
+    padding: 0;
+    margin: 0;
+    border: none;
+    border-radius: 0;
 }
 
-.blur-sm.select-none {
-    user-select: none;
+.chinese-word.has-link {
+    border-bottom: 2px solid #10b981;
+    /* не переопределяем background-color */
 }
