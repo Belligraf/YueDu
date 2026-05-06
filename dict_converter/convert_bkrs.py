@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 # Укажите путь к вашему распакованному файлу БКРС
 BKRS_FILE_PATH = "D:\\BKRS\\dabkrs_260505\\dabkrs_260505"
-
+#umum
 
 def clean_dsl_to_html(text):
     """
