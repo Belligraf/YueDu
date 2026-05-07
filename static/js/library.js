@@ -19,11 +19,15 @@ window.loadLibrary = async function() {
         list.innerHTML = '';
         texts.forEach(text => {
             const div = document.createElement('div');
-            div.className = `library-item p-3 border rounded-lg cursor-pointer mb-2 transition-colors ${window.currentEditId === text.id ? 'bg-blue-100 border-blue-500' : 'hover:bg-gray-50'}`;
-            div.onclick = () => window.loadText(text.id);
+            div.className = `library-item p-3 border rounded-lg mb-2 transition-colors ${window.currentEditId === text.id ? 'bg-blue-100 border-blue-500' : 'hover:bg-gray-50'}`;
             div.innerHTML = `
-                <div class="font-bold text-sm truncate">📄 ${window.escapeHtml(text.title)}</div>
-                <div class="text-xs text-gray-500 mt-1 truncate">${window.escapeHtml(text.content.slice(0, 60))}</div>
+                <div class="flex justify-between items-start gap-2">
+                    <div class="flex-1 cursor-pointer" style="word-break: break-word;" onclick="window.loadText(${text.id})">
+                        <div class="font-bold text-sm">📄 ${window.escapeHtml(text.title)}</div>
+                        <div class="text-xs text-gray-500 mt-1">${window.escapeHtml(text.content.slice(0, 80))}</div>
+                    </div>
+                    <button onclick="window.deleteText(${text.id}, event)" class="text-red-500 hover:text-red-700 flex-shrink-0" title="Удалить">🗑️</button>
+                </div>
             `;
             list.appendChild(div);
         });
@@ -108,4 +112,30 @@ window.saveToLibrary = async function() {
         console.error(e);
         alert("❌ Ошибка: " + e.message);
     }
+};
+
+window.deleteText = async function(id, event) {
+    event.stopPropagation(); // чтобы не вызывать загрузку текста
+    if (!confirm('Удалить этот текст? Все связи и части речи будут потеряны.')) return;
+    try {
+        const response = await fetch(`/api/library/${id}`, { method: 'DELETE' });
+        if (response.ok) {
+            alert('Текст удалён');
+            window.loadLibrary(); // обновить список
+            if (window.currentEditId === id) {
+                // если удалён открытый текст, очистить поля
+                window.currentOriginalText = '';
+                window.currentTranslationText = '';
+                window.currentEditId = null;
+                document.getElementById('inputText').value = '';
+                document.getElementById('inputTranslation').value = '';
+                const origDiv = document.getElementById('original-text');
+                const transDiv = document.getElementById('translation-text');
+                if (origDiv) origDiv.innerHTML = '';
+                if (transDiv) transDiv.innerHTML = '';
+            }
+        } else {
+            alert('Ошибка удаления');
+        }
+    } catch(e) { console.error(e); }
 };

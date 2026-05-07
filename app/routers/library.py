@@ -39,10 +39,6 @@ def get_text(id: int, db: Session = Depends(get_db)):
 # --- ЭНДПОИНТ ДЛЯ СОПОСТАВЛЕНИЙ ---
 @router.post("/{id}/matches")
 def save_matches(id: int, match_data: dict, db: Session = Depends(get_db)):
-    """
-    ГЛАВНЫЙ ЭНДПОИНТ ДЛЯ КНОПКИ "СОПОСТАВИТЬ СЛОВА"
-    Сохраняет связи многие-ко-многим
-    """
     text = db.query(UserText).filter(UserText.id == id).first()
     if not text:
         raise HTTPException(status_code=404)
@@ -59,17 +55,22 @@ def save_matches(id: int, match_data: dict, db: Session = Depends(get_db)):
             text_id=id,
             word=w["word"],
             position=w.get("position", idx),
-            part_of_speech=w.get("part_of_speech")
+            part_of_speech=w.get("part_of_speech")  # может быть None
         )
         db.add(db_word)
         db.flush()
         word_map[idx] = db_word.id
 
-    # Сохраняем переводы
+    # Сохраняем переводы (русские слова) – добавляем part_of_speech
     translations = match_data.get("translations", [])
     trans_map = {}
     for idx, t in enumerate(translations):
-        db_trans = Translation(text_id=id, phrase=t["phrase"], position=t.get("position", idx))
+        db_trans = Translation(
+            text_id=id,
+            phrase=t["phrase"],
+            position=t.get("position", idx),
+            part_of_speech=t.get("part_of_speech")   # <-- ДОБАВЛЕНО
+        )
         db.add(db_trans)
         db.flush()
         trans_map[idx] = db_trans.id
@@ -97,7 +98,6 @@ def get_matches(id: int, db: Session = Depends(get_db)):
     words = db.query(Word).filter(Word.text_id == id).order_by(Word.position).all()
     translations = db.query(Translation).filter(Translation.text_id == id).order_by(Translation.position).all()
 
-    # Формируем ответ с translation_ids
     words_data = []
     for w in words:
         words_data.append({
@@ -113,7 +113,8 @@ def get_matches(id: int, db: Session = Depends(get_db)):
         translations_data.append({
             "id": t.id,
             "phrase": t.phrase,
-            "position": t.position
+            "position": t.position,
+            "part_of_speech": t.part_of_speech   # <-- ДОБАВЛЕНО
         })
 
     return {
@@ -129,3 +130,23 @@ def update_word_part_of_speech(word_id: int, data: dict, db: Session = Depends(g
     word.part_of_speech = data.get("part_of_speech")
     db.commit()
     return {"status": "ok", "part_of_speech": word.part_of_speech}
+
+
+@router.patch("/translations/{translation_id}")
+def update_translation_part_of_speech(translation_id: int, data: dict, db: Session = Depends(get_db)):
+    trans = db.query(Translation).filter(Translation.id == translation_id).first()
+    if not trans:
+        raise HTTPException(status_code=404, detail="Translation not found")
+    trans.part_of_speech = data.get("part_of_speech")
+    db.commit()
+    return {"status": "ok", "part_of_speech": trans.part_of_speech}
+
+
+@router.delete("/{id}")
+def delete_text(id: int, db: Session = Depends(get_db)):
+    text = db.query(UserText).filter(UserText.id == id).first()
+    if not text:
+        raise HTTPException(status_code=404)
+    db.delete(text)
+    db.commit()
+    return {"message": "Text deleted"}

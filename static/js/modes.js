@@ -163,12 +163,27 @@ window.loadParallelView = async function() {
             span.onclick = (function(i, el) {
                 return function(e) {
                     e.stopPropagation();
+                    // Если слово уже выделено - снимаем выделение
                     if (window.selectedChineseWords.has(i)) {
                         window.selectedChineseWords.delete(i);
                         el.classList.remove('selected-for-link');
+                        // Также снимаем выделение со связанных русских слов
+                        const linkedRussian = window.currentMatches[i] || [];
+                        for (const ruIdx of linkedRussian) {
+                            const ruEl = document.querySelector(`.russian-word[data-idx='${ruIdx}']`);
+                            if (ruEl) ruEl.classList.remove('selected-for-link');
+                            window.selectedRussianWords.delete(ruIdx);
+                        }
                     } else {
                         window.selectedChineseWords.add(i);
                         el.classList.add('selected-for-link');
+                        // Выделяем связанные русские слова
+                        const linkedRussian = window.currentMatches[i] || [];
+                        for (const ruIdx of linkedRussian) {
+                            const ruEl = document.querySelector(`.russian-word[data-idx='${ruIdx}']`);
+                            if (ruEl) ruEl.classList.add('selected-for-link');
+                            window.selectedRussianWords.add(ruIdx);
+                        }
                     }
                     window.updateLinkButtonState();
                 };
@@ -375,40 +390,37 @@ window.loadMatchesFromDB = async function() {
 
 // ========== ПОДСВЕТКА СВЯЗАННЫХ СЛОВ ==========
 window.highlightLinkedWords = function() {
+    if (!window.highlightEnabled) return;
     const origDiv = document.getElementById('original-text');
     const transDiv = document.getElementById('translation-text');
 
     if (origDiv) {
         const chineseWords = origDiv.querySelectorAll('.chinese-word');
         chineseWords.forEach((word) => {
-            // Не перезаписываем фон у выделенных слов
             if (word.classList.contains('selected-for-link')) return;
             const idx = parseInt(word.getAttribute('data-idx'));
             if (window.currentMatches && window.currentMatches[idx] && window.currentMatches[idx].length) {
                 word.style.backgroundColor = '#d1fae5';
+                word.setAttribute('data-original-bg', '#d1fae5');   // <-- добавить
             } else {
                 const pos = window.currentWordsPos ? window.currentWordsPos[idx] : null;
-                if (pos && pos !== 'unknown' && window.posColors && window.posColors[pos]) {
-                    word.style.backgroundColor = window.posColors[pos];
-                } else {
-                    word.style.backgroundColor = '';
-                }
+                const newColor = (pos && pos !== 'unknown' && window.posColors && window.posColors[pos])
+                    ? window.posColors[pos]
+                    : '';
+                word.style.backgroundColor = newColor;
+                word.setAttribute('data-original-bg', newColor);   // <-- добавить (если newColor пустая, всё равно сохранить)
             }
         });
     }
 
     if (transDiv) {
-        const linkedRussianIndices = new Set();
-        if (window.currentMatches) {
-            for (const ruIndices of Object.values(window.currentMatches)) {
-                ruIndices.forEach(idx => linkedRussianIndices.add(idx));
-            }
-        }
         const russianWords = transDiv.querySelectorAll('.russian-word');
         russianWords.forEach((word) => {
             if (word.classList.contains('selected-for-link')) return;
             const idx = parseInt(word.getAttribute('data-idx'));
-            word.style.backgroundColor = linkedRussianIndices.has(idx) ? '#d1fae5' : '';
+            const color = getColorForRussianWord(idx); // или ваша логика получения цвета
+            word.style.backgroundColor = color;
+            word.setAttribute('data-original-bg', color);   // <-- добавить
         });
     }
 };
@@ -428,6 +440,7 @@ window.createControlPanel = function() {
         <button id="link-btn" style="background:#3b82f6;color:white;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;">🔗 Привязать</button>
         <button onclick="window.clearSelections()" style="background:#6b7280;color:white;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;">🗑️ Очистить</button>
         <button onclick="window.saveAllLinksToDB()" style="background:#10b981;color:white;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;">💾 Сохранить</button>
+        <button id="toggle-highlight-btn" onclick="window.toggleHighlight()" style="background:#8b5cf6;color:white;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;">🎨 Выключить подсветку</button>
     `;
     container.appendChild(panel);
 
@@ -564,6 +577,47 @@ window.toggleBlur = function() {
     }
 };
 
+function getColorForRussianWord(russianIdx) {
+    // Найти все китайские индексы, связанные с этим русским словом
+    const linkedChineseIndices = [];
+    for (const [chIdx, ruIds] of Object.entries(window.currentMatches)) {
+        if (ruIds.includes(russianIdx)) linkedChineseIndices.push(parseInt(chIdx));
+    }
+    if (linkedChineseIndices.length === 0) return ''; // нет связи – прозрачный
+    // Ищем первый связанный китайский индекс, у которого есть part_of_speech
+    for (const chIdx of linkedChineseIndices) {
+        const pos = window.currentWordsPos ? window.currentWordsPos[chIdx] : null;
+        if (pos && pos !== 'unknown' && window.posColors && window.posColors[pos]) {
+            return window.posColors[pos]; // цвет части речи
+        }
+    }
+    // Если ни у одного китайского слова нет части речи – зелёный
+    return '#d1fae5';
+};
+
+window.toggleHighlight = function() {
+    window.highlightEnabled = !window.highlightEnabled;
+    const btn = document.getElementById('toggle-highlight-btn');
+    if (!btn) return;
+
+    if (window.highlightEnabled) {
+        btn.innerHTML = '🎨 Выключить подсветку';
+        document.querySelectorAll('.chinese-word, .russian-word').forEach(el => {
+            const savedBg = el.getAttribute('data-original-bg');
+            if (savedBg) el.style.backgroundColor = savedBg;
+        });
+        window.highlightLinkedWords(); // если хотите пересчитать актуальные цвета (заменит сохранённые на свежие)
+    } else {
+        btn.innerHTML = '🎨 Включить подсветку';
+        // Сохраняем текущие цвета и выключаем
+        document.querySelectorAll('.chinese-word, .russian-word').forEach(el => {
+            if (!el.getAttribute('data-original-bg')) {
+                el.setAttribute('data-original-bg', el.style.backgroundColor || '');
+            }
+            el.style.backgroundColor = '';
+        });
+    }
+};
 
 // Делаем функции глобальными
 window.showPartMenu = showPartMenu;

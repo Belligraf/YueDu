@@ -223,6 +223,7 @@ window.createMatchPanel = function() {
         <button id="match-link-btn" style="background:#3b82f6;color:white;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;">🔗 Привязать</button>
         <button onclick="window.clearMatchSelections()" style="background:#6b7280;color:white;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;">🗑️ Очистить</button>
         <button onclick="window.saveAllLinksToDB()" style="background:#10b981;color:white;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;">💾 Сохранить</button>
+        <button id="toggle-highlight-btn" onclick="window.toggleHighlight()" style="background:#8b5cf6;color:white;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;">🎨 Выключить подсветку</button>
     `;
     container.appendChild(panel);
 
@@ -366,10 +367,7 @@ window.showPartMenu = function(x, y, wordIdx, wordText) {
 
 window.updatePartOfSpeech = async function(wordIdx, newPos) {
     const wordId = window.currentWordsIds?.[wordIdx];
-    if (!wordId) {
-        console.warn(`Нет ID для слова с индексом ${wordIdx}`);
-        return;
-    }
+    if (!wordId) return;
     try {
         const res = await fetch(`/api/library/words/${wordId}`, {
             method: 'PATCH',
@@ -377,14 +375,24 @@ window.updatePartOfSpeech = async function(wordIdx, newPos) {
             body: JSON.stringify({ part_of_speech: newPos })
         });
         if (res.ok) {
-            // Обновить локальный массив
             window.currentWordsPos[wordIdx] = newPos;
-            // Найти span и применить подсветку
             const span = document.querySelector(`.chinese-word[data-idx='${wordIdx}']`);
-            if (span) window.applyPosHighlight(span, newPos);
-            console.log(`Слову "${window.currentWordsArray[wordIdx]}" назначена часть речи: ${newPos}`);
-        } else {
-            console.error('Ошибка обновления части речи', res.status);
+            if (span) {
+                if (newPos && newPos !== 'unknown' && window.posColors[newPos]) {
+                    span.style.backgroundColor = window.posColors[newPos];
+                } else {
+                    span.style.backgroundColor = '';
+                }
+            }
+            // Пересчитать цвета всех связанных русских слов
+            const linkedRussian = window.currentMatches[wordIdx] || [];
+            for (const ruIdx of linkedRussian) {
+                const ruSpan = document.querySelector(`.russian-word[data-idx='${ruIdx}']`);
+                if (ruSpan) {
+                    const newColor = getColorForRussianWord(ruIdx);
+                    ruSpan.style.backgroundColor = newColor;
+                }
+            }
         }
     } catch(e) { console.error(e); }
 };

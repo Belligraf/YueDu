@@ -10,8 +10,7 @@ window.currentTransArray = [];
 window.currentMatches = {};
 window.currentSegmentedWords = [];
 window.loadMatches = window.loadMatchesFromDB;
-
-
+window.highlightEnabled = true;
 
 // ========== РАЗБИВКА КИТАЙСКОГО ТЕКСТА (совместимость) ==========
 window.splitChineseText = function(text) {

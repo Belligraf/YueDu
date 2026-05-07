@@ -58,3 +58,4 @@ class Translation(Base):
 
     # Связь многие ко многим со словами
     words = relationship("Word", secondary=word_translation_association, back_populates="translations")
+    part_of_speech = Column(String(50), nullable=True)
