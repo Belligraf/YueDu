@@ -380,13 +380,19 @@ window.highlightLinkedWords = function() {
 
     if (origDiv) {
         const chineseWords = origDiv.querySelectorAll('.chinese-word');
-        chineseWords.forEach((word, idx) => {
+        chineseWords.forEach((word) => {
+            // Не перезаписываем фон у выделенных слов
+            if (word.classList.contains('selected-for-link')) return;
+            const idx = parseInt(word.getAttribute('data-idx'));
             if (window.currentMatches && window.currentMatches[idx] && window.currentMatches[idx].length) {
                 word.style.backgroundColor = '#d1fae5';
-                // УБРАТЬ ЭТУ СТРОКУ:
-                // word.style.borderRadius = '4px';
             } else {
-                word.style.backgroundColor = '';
+                const pos = window.currentWordsPos ? window.currentWordsPos[idx] : null;
+                if (pos && pos !== 'unknown' && window.posColors && window.posColors[pos]) {
+                    word.style.backgroundColor = window.posColors[pos];
+                } else {
+                    word.style.backgroundColor = '';
+                }
             }
         });
     }
@@ -395,18 +401,14 @@ window.highlightLinkedWords = function() {
         const linkedRussianIndices = new Set();
         if (window.currentMatches) {
             for (const ruIndices of Object.values(window.currentMatches)) {
-                if (ruIndices && ruIndices.length) {
-                    ruIndices.forEach(idx => linkedRussianIndices.add(idx));
-                }
+                ruIndices.forEach(idx => linkedRussianIndices.add(idx));
             }
         }
         const russianWords = transDiv.querySelectorAll('.russian-word');
-        russianWords.forEach((word, idx) => {
-            if (linkedRussianIndices.has(idx)) {
-                word.style.backgroundColor = '#d1fae5';
-            } else {
-                word.style.backgroundColor = '';
-            }
+        russianWords.forEach((word) => {
+            if (word.classList.contains('selected-for-link')) return;
+            const idx = parseInt(word.getAttribute('data-idx'));
+            word.style.backgroundColor = linkedRussianIndices.has(idx) ? '#d1fae5' : '';
         });
     }
 };
@@ -444,20 +446,37 @@ window.updateLinkButtonState = function() {
 window.linkSelectedWords = function() {
     console.log("Привязка слов, китайские:", Array.from(window.selectedChineseWords), "русские:", Array.from(window.selectedRussianWords));
 
-    for (const chIdx of window.selectedChineseWords) {
+    const selectedChinese = Array.from(window.selectedChineseWords);
+    const selectedRussian = Array.from(window.selectedRussianWords);
+
+    // Добавляем связи
+    for (const chIdx of selectedChinese) {
         if (!window.currentMatches[chIdx]) window.currentMatches[chIdx] = [];
-        for (const ruIdx of window.selectedRussianWords) {
+        for (const ruIdx of selectedRussian) {
             if (!window.currentMatches[chIdx].includes(ruIdx)) {
                 window.currentMatches[chIdx].push(ruIdx);
-                console.log(`Связали китайское слово ${chIdx} с русским ${ruIdx}`);
             }
         }
     }
 
+    // Обновляем цвета (связанные слова станут зелёными)
     window.highlightLinkedWords();
     window.clearSelections();
 
-    // Автоматически сохраняем после привязки
+    // Снимаем выделение только с привязанных слов
+    for (const idx of selectedChinese) {
+        const el = document.querySelector(`.chinese-word[data-idx='${idx}']`);
+        if (el) el.classList.remove('selected-for-link');
+        window.selectedChineseWords.delete(idx);
+    }
+    for (const idx of selectedRussian) {
+        const el = document.querySelector(`.russian-word[data-idx='${idx}']`);
+        if (el) el.classList.remove('selected-for-link');
+        window.selectedRussianWords.delete(idx);
+    }
+    window.updateLinkButtonState();
+
+    // Сохраняем в БД
     if (window.currentEditId) {
         setTimeout(() => window.saveAllLinksToDB(), 100);
     }
@@ -465,13 +484,16 @@ window.linkSelectedWords = function() {
 
 window.clearSelections = function() {
     console.trace("clearSelections вызван");
+    for (const idx of window.selectedChineseWords) {
+        const el = document.querySelector(`.chinese-word[data-idx='${idx}']`);
+        if (el) el.classList.remove('selected-for-link');
+    }
+    for (const idx of window.selectedRussianWords) {
+        const el = document.querySelector(`.russian-word[data-idx='${idx}']`);
+        if (el) el.classList.remove('selected-for-link');
+    }
     window.selectedChineseWords.clear();
     window.selectedRussianWords.clear();
-    // Убираем только класс selected-for-link, но не трогаем фоновый цвет
-    document.querySelectorAll('.chinese-word.selected-for-link, .russian-word.selected-for-link').forEach(el => {
-        el.classList.remove('selected-for-link');
-        // Не удаляем backgroundColor, так как он может быть от part_of_speech
-    });
     window.updateLinkButtonState();
 };
 
