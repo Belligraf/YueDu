@@ -219,3 +219,6 @@ __marimo__/
 
 .venv
 dictionary.db
+.local
+.aider*
+.continue

@@ -1,132 +1,121 @@
-import re
-from app import models, database
+import sys
+import os
+from pathlib import Path
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+# ==================== ЖЁСТКАЯ НАСТРОЙКА ====================
+BASE_DIR = Path(__file__).parent.parent.resolve()
+DB_PATH = BASE_DIR / "data" / "dictionary.db"
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+# Полностью игнорируем старый database.py
+os.environ["SQLITE_DB_PATH"] = str(DB_PATH)
+
+# Создаём engine вручную
+engine = create_engine(
+    f"sqlite:///{DB_PATH}",
+    connect_args={"check_same_thread": False}
+)
+
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+print(f"✅ ЖЁСТКО используем БД: {engine.url}")
+print(f"📍 Физический файл: {DB_PATH}\n")
+# ========================================================
+
+# Импортируем модели
+sys.path.insert(0, str(BASE_DIR))
+from app import models
 from sqlalchemy.orm import Session
 
-# Укажите путь к вашему распакованному файлу БКРС
-BKRS_FILE_PATH = "C:\\Users\\narut\\Downloads\\dabkrs_260503\\dabkrs_260503"
-
-
-def clean_dsl_to_html(text):
-    """
-    Превращает DSL разметку в чистый HTML для фронтенда.
-    """
+def clean_dsl_to_html(text: str) -> str:
     if not text:
         return ""
-
-    # 1. Заменяем курсив и жирный на соответствующие HTML теги
+    import re
     text = re.sub(r"\[i\](.*?)\[/i\]", r"<i>\1</i>", text)
     text = re.sub(r"\[b\](.*?)\[/b\]", r"<b>\1</b>", text)
-
-    # 2. Ссылки на другие слова [ref]слово[/ref] -> просто текст
-    text = re.sub(r"\[ref\].*?\[/ref\]", lambda m: m.group(0).replace("[ref]", "").replace("[/ref]", ""), text)
-
-    # 3. Удаляем все остальные служебные теги (m1, m2, p, c, ex и т.д.)
+    text = re.sub(r"\[ref\].*?\[/ref\]", "", text)
     text = re.sub(r"\[.*?\]", "", text)
-
-    # Убираем лишние пробелы, возникающие при склейке строк
-    return text.strip()
+    return " ".join(text.split())
 
 
 def import_bkrs():
-    # ШАГ 1: Создаем таблицы в БД, если их еще нет
-    print("🛠 Подготовка базы данных...")
-    models.Base.metadata.create_all(bind=database.engine)
+    file_path = BASE_DIR / ".local" / "dabkrs_260509" / "dabkrs_260509"
 
-    db: Session = database.SessionLocal()
+    print(f"✅ DSL файл: {file_path}")
+    print(f"📏 Размер: {file_path.stat().st_size / (1024*1024):.1f} MB\n")
 
-    # ШАГ 2: Проверка кодировки и открытие файла
-    try:
-        # DSL обычно в UTF-16 LE с BOM
-        f = open(BKRS_FILE_PATH, 'r', encoding='utf-16')
-        f.read(1)  # Пробное чтение
-        f.seek(0)
-    except (UnicodeError, UnicodeDecodeError):
-        f = open(BKRS_FILE_PATH, 'r', encoding='utf-8')
+    models.Base.metadata.create_all(bind=engine)
 
-    batch_size = 2000
-    entries = []
+    db: Session = SessionLocal()
+    batch = []
+    batch_size = 1000
     count = 0
 
     current_word = None
     current_pinyin = None
     current_translation_parts = []
 
-    print("🚀 Начинаю импорт словаря БКРС...")
+    print("🚀 Начинаю импорт...")
 
-    for line in f:
-        # Убираем символ BOM (\ufeff) и лишние пробелы по краям
-        line = line.lstrip('\ufeff')
+    with open(file_path, 'r', encoding='utf-8-sig', errors='replace') as f:
+        for line in f:
+            line = line.rstrip('\n\r')
 
-        # Пропускаем служебные заголовки и пустые строки
-        if not line.strip() or line.startswith('#'):
-            continue
-
-        # ПРОВЕРКА: Новое слово или продолжение описания?
-        # Если строка НЕ начинается с отступа (пробел, таб или специальный пробел)
-        if not line.startswith(('\t', ' ', '\xa0')):
-
-            # Если мы уже собрали предыдущее слово — сохраняем его в список
-            if current_word:
-                full_trans = " ".join(current_translation_parts)
-                entry = models.Dictionary(
-                    word=current_word.strip(),
-                    pinyin=current_pinyin.strip() if current_pinyin else "",
-                    translation=clean_dsl_to_html(full_trans),
-                    examples=""
-                )
-                entries.append(entry)
-                count += 1
-
-            # Подготовка для НОВОГО слова
-            current_word = line.strip()
-            current_pinyin = None
-            current_translation_parts = []
-
-            # Массовая вставка в БД (для скорости и экономии памяти)
-            if len(entries) >= batch_size:
-                try:
-                    db.bulk_save_objects(entries)
-                    db.commit()
-                    print(f"✅ Загружено {count} слов...")
-                except Exception as e:
-                    print(f"⚠️ Ошибка при вставке пачки: {e}")
-                    db.rollback()
-                entries = []
-
-        else:
-            # Если строка С ОТСТУПОМ — это пиньинь или перевод
-            content = line.strip()
-            if not content:
+            if not line or line.startswith('#'):
                 continue
 
-            # Если в строке есть тег [m] — это точно перевод
-            if "[m" in line:
-                current_translation_parts.append(content)
-            else:
-                # Если тегов нет и мы еще не нашли пиньинь — это он
-                if not current_pinyin and not current_translation_parts:
-                    current_pinyin = content
-                else:
-                    # Иначе это просто дополнительная строка перевода
-                    current_translation_parts.append(content)
+            if not line.startswith((' ', '\t')) and any('\u4e00' <= c <= '\u9fff' for c in line):
+                if current_word:
+                    full_trans = " ".join(current_translation_parts)
+                    entry = models.Dictionary(
+                        word=current_word.strip(),
+                        pinyin=current_pinyin.strip() if current_pinyin else "",
+                        translation=clean_dsl_to_html(full_trans),
+                        examples=""
+                    )
+                    batch.append(entry)
+                    count += 1
 
-    # ШАГ 3: Сохраняем последний "хвост" данных
+                    if len(batch) >= batch_size:
+                        db.bulk_save_objects(batch)
+                        db.commit()
+                        batch.clear()
+                        if count % 5000 == 0:
+                            print(f"   ✅ Импортировано: {count:,} слов")
+
+                current_word = line
+                current_pinyin = None
+                current_translation_parts = []
+
+            elif current_word:
+                stripped = line.strip()
+                if stripped:
+                    if any(tag in stripped for tag in ["[m", "[ex", "[c", "[p", "[tr"]):
+                        current_translation_parts.append(stripped)
+                    elif not current_pinyin and not current_translation_parts:
+                        current_pinyin = stripped
+                    else:
+                        current_translation_parts.append(stripped)
+
+    # Последнее слово
     if current_word:
         full_trans = " ".join(current_translation_parts)
-        entries.append(models.Dictionary(
+        batch.append(models.Dictionary(
             word=current_word.strip(),
             pinyin=current_pinyin.strip() if current_pinyin else "",
             translation=clean_dsl_to_html(full_trans),
             examples=""
         ))
+        count += 1
 
-    if entries:
-        db.bulk_save_objects(entries)
+    if batch:
+        db.bulk_save_objects(batch)
         db.commit()
 
-    print(f"✨ Импорт завершен! Всего слов в базе: {count}")
+    print(f"\n🎉 ИМПОРТ ЗАВЕРШЁН! Всего слов: {count:,}")
     db.close()
-    f.close()
 
 
 if __name__ == "__main__":
