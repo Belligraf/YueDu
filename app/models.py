@@ -1,16 +1,21 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, Table
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from app.database import Base
 
-# Таблица связи многие ко многим между словами и переводами
-word_translation_association = Table(
-    'word_translation_association',
-    Base.metadata,
-    Column('word_id', Integer, ForeignKey('words.id')),
-    Column('translation_id', Integer, ForeignKey('translations.id'))
-)
+
+# ==================== АССОЦИАТИВНАЯ ТАБЛИЦА ====================
+class WordTranslationAssociation(Base):
+    __tablename__ = "word_translation_association"
+
+    word_id = Column(Integer, ForeignKey("words.id", ondelete="CASCADE"), primary_key=True)
+    translation_id = Column(Integer, ForeignKey("translations.id", ondelete="CASCADE"), primary_key=True)
+
+    __table_args__ = (
+        UniqueConstraint("word_id", "translation_id", name="uq_word_translation"),
+    )
 
 
+# ==================== ОСНОВНЫЕ МОДЕЛИ ====================
 class Dictionary(Base):
     __tablename__ = "dictionary"
 
@@ -35,27 +40,29 @@ class Word(Base):
     id = Column(Integer, primary_key=True, index=True)
     text_id = Column(Integer, ForeignKey('user_texts.id', ondelete='CASCADE'))
     word = Column(String, nullable=False)
-    position = Column(Integer)  # Позиция в тексте
-
-    # Связь с текстом
-    text = relationship("UserText", backref="words")
-
-    # Связь многие ко многим с переводами
-    translations = relationship("Translation", secondary=word_translation_association, back_populates="words")
+    position = Column(Integer)
     part_of_speech = Column(String(50), nullable=True)
 
-# Новая модель для хранения фраз перевода
+    text = relationship("UserText", backref="words")
+    translations = relationship(
+        "Translation",
+        secondary="word_translation_association",
+        back_populates="words"
+    )
+
+
 class Translation(Base):
     __tablename__ = "translations"
 
     id = Column(Integer, primary_key=True, index=True)
     text_id = Column(Integer, ForeignKey('user_texts.id', ondelete='CASCADE'))
     phrase = Column(String, nullable=False)
-    position = Column(Integer)  # Позиция в переводе
-
-    # Связь с текстом
-    text = relationship("UserText", backref="translations")
-
-    # Связь многие ко многим со словами
-    words = relationship("Word", secondary=word_translation_association, back_populates="translations")
+    position = Column(Integer)
     part_of_speech = Column(String(50), nullable=True)
+
+    text = relationship("UserText", backref="translations")
+    words = relationship(
+        "Word",
+        secondary="word_translation_association",
+        back_populates="translations"
+    )

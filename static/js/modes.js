@@ -408,8 +408,6 @@ window.loadMatchesFromDB = async function() {
 
 // ========== ПОДСВЕТКА СВЯЗАННЫХ СЛОВ ==========
 window.highlightLinkedWords = function() {
-    if (!window.highlightEnabled) return;
-
     // Китайские слова
     document.querySelectorAll('.chinese-word').forEach(span => {
         const idx = parseInt(span.getAttribute('data-idx'));
@@ -419,9 +417,11 @@ window.highlightLinkedWords = function() {
 
         if (isLinked) {
             span.style.backgroundColor = '#d1fae5';
+            span.classList.add('has-link');
         } else {
             const pos = window.currentWordsPos?.[idx];
             span.style.backgroundColor = (pos && window.posColors?.[pos]) ? window.posColors[pos] : '';
+            span.classList.remove('has-link');
         }
     });
 
@@ -491,39 +491,35 @@ window.updateLinkButtonState = function() {
 };
 
 window.linkSelectedWords = function() {
-    console.log("Привязка слов, китайские:", Array.from(window.selectedChineseWords), "русские:", Array.from(window.selectedRussianWords));
+    const selectedCh = Array.from(window.selectedChineseWords);
+    const selectedRu = Array.from(window.selectedRussianWords);
 
-    const selectedChinese = Array.from(window.selectedChineseWords);
-    const selectedRussian = Array.from(window.selectedRussianWords);
+    console.log("🔥 linkSelectedWords");
+    console.log("Выбрано китайских:", selectedCh);
+    console.log("Выбрано русских:", selectedRu);
 
-    // Добавляем связи
-    for (const chIdx of selectedChinese) {
-        if (!window.currentMatches[chIdx]) window.currentMatches[chIdx] = [];
-        for (const ruIdx of selectedRussian) {
-            if (!window.currentMatches[chIdx].includes(ruIdx)) {
-                window.currentMatches[chIdx].push(ruIdx);
-            }
-        }
+    if (selectedCh.length === 0 || selectedRu.length === 0) {
+        alert("Выберите слова с обеих сторон!");
+        return;
     }
 
-    // Обновляем цвета (связанные слова станут зелёными)
+    // === ЖЁСТКАЯ ОЧИСТКА ПЕРЕД НОВЫМИ СВЯЗЯМИ ===
+    selectedCh.forEach(chIdx => {
+        window.currentMatches[chIdx] = [];   // полностью очищаем старые связи для этих слов
+    });
+
+    selectedCh.forEach(chIdx => {
+        selectedRu.forEach(ruIdx => {
+            window.currentMatches[chIdx].push(ruIdx);
+            console.log(`✅ Добавлена связь: китайское[${chIdx}] → русское[${ruIdx}]`);
+        });
+    });
+
+    console.log("currentMatches после очистки и добавления:", JSON.parse(JSON.stringify(window.currentMatches)));
+
     window.highlightLinkedWords();
     window.clearSelections();
 
-    // Снимаем выделение только с привязанных слов
-    for (const idx of selectedChinese) {
-        const el = document.querySelector(`.chinese-word[data-idx='${idx}']`);
-        if (el) el.classList.remove('selected-for-link');
-        window.selectedChineseWords.delete(idx);
-    }
-    for (const idx of selectedRussian) {
-        const el = document.querySelector(`.russian-word[data-idx='${idx}']`);
-        if (el) el.classList.remove('selected-for-link');
-        window.selectedRussianWords.delete(idx);
-    }
-    window.updateLinkButtonState();
-
-    // Сохраняем в БД
     if (window.currentEditId) {
         setTimeout(() => window.saveAllLinksToDB(), 100);
     }
@@ -559,46 +555,50 @@ window.showTranslationFromDictionary = async function(word) {
 };
 
 window.saveAllLinksToDB = async function() {
-    if (!window.currentEditId) {
-        console.warn("Нет ID текста");
-        return;
-    }
+    if (!window.currentEditId) return;
 
-    // Собираем слова из массивов, а не из DOM
-    const allWords = (window.currentWordsArray || []).map((word, idx) => ({
-        word: word,
-        position: idx,
-        part_of_speech: window.currentWordsPos?.[idx] || null   // добавить
-    })).filter(w => w.word && /[\u4e00-\u9fff]/.test(w.word));
-
-    const allTranslations = (window.currentTransArray || []).map((phrase, idx) => ({
-        phrase: phrase,
-        position: idx
-    })).filter(t => t.phrase && /[а-яА-Я]/.test(t.phrase));
+    console.log("💾 saveAllLinksToDB — отправка");
 
     const associations = Object.entries(window.currentMatches || {})
-        .filter(([_, ids]) => ids && ids.length)
-        .map(([wordIdx, transIds]) => ({
-            word_id: parseInt(wordIdx),
-            translation_ids: transIds
+        .filter(([_, arr]) => arr && arr.length > 0)
+        .map(([wordPos, transArr]) => ({
+            word_id: parseInt(wordPos),
+            translation_ids: [...new Set(transArr)]
         }));
 
-    const matchData = { words: allWords, translations: allTranslations, associations };
-    console.log("Отправляем сохранение:", matchData);
+    console.log("Отправляемые ассоциации:", associations);
+
+    const payload = {
+        words: (window.currentWordsArray || []).map((w, i) => ({
+            word: w,
+            position: i,
+            part_of_speech: window.currentWordsPos?.[i] || null
+        })).filter(w => w.word),
+
+        translations: (window.currentTransArray || []).map((t, i) => ({
+            phrase: t,
+            position: i
+        })).filter(t => t.phrase),
+
+        associations: associations
+    };
 
     try {
-        const response = await fetch(`/api/library/${window.currentEditId}/matches`, {
+        const res = await fetch(`/api/library/${window.currentEditId}/matches`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(matchData)
+            body: JSON.stringify(payload)
         });
-        if (response.ok) {
-            console.log("✅ Сохранено в БД");
-            await window.loadMatchesFromDB();   // ← важно
-            window.highlightLinkedWords();      // ← сразу обновляем UI
+
+        console.log("Статус ответа:", res.status);
+        if (res.ok) {
+            console.log("✅ Сохранено успешно");
+            await window.loadMatchesFromDB();
+            window.highlightLinkedWords();
         }
-        else console.error("Ошибка сохранения:", response.status);
-    } catch(e) { console.error(e); }
+    } catch (e) {
+        console.error("Ошибка:", e);
+    }
 };
 
 window.toggleBlur = function() {

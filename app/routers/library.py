@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from ..database import get_db
-from ..models import UserText, Word, Translation, word_translation_association
+from ..models import UserText, Word, Translation, WordTranslationAssociation
 
 router = APIRouter(
     prefix="/api/library",
@@ -41,9 +41,9 @@ def get_text(id: int, db: Session = Depends(get_db)):
 def save_matches(id: int, match_data: dict, db: Session = Depends(get_db)):
     text = db.query(UserText).filter(UserText.id == id).first()
     if not text:
-        raise HTTPException(status_code=404)
+        raise HTTPException(status_code=404, detail="Текст не найден")
 
-    # Удаляем старые сопоставления
+    # Удаляем всё старое
     db.query(Word).filter(Word.text_id == id).delete()
     db.query(Translation).filter(Translation.text_id == id).delete()
 
@@ -54,39 +54,46 @@ def save_matches(id: int, match_data: dict, db: Session = Depends(get_db)):
         db_word = Word(
             text_id=id,
             word=w["word"],
-            position=w.get("position", idx),
-            part_of_speech=w.get("part_of_speech")  # может быть None
+            position=idx,
+            part_of_speech=w.get("part_of_speech")
         )
         db.add(db_word)
         db.flush()
         word_map[idx] = db_word.id
 
-    # Сохраняем переводы (русские слова) – добавляем part_of_speech
+    # Сохраняем переводы
     translations = match_data.get("translations", [])
     trans_map = {}
     for idx, t in enumerate(translations):
         db_trans = Translation(
             text_id=id,
             phrase=t["phrase"],
-            position=t.get("position", idx),
-            part_of_speech=t.get("part_of_speech")   # <-- ДОБАВЛЕНО
+            position=idx,
+            part_of_speech=t.get("part_of_speech")
         )
         db.add(db_trans)
         db.flush()
         trans_map[idx] = db_trans.id
 
-    # Связи многие-ко-многим
+    # === СОХРАНЯЕМ СВЯЗИ БЕЗ ДУБЛЕЙ ===
     associations = match_data.get("associations", [])
     for assoc in associations:
-        word_id = word_map[assoc["word_id"]]
-        for tid in assoc["translation_ids"]:
-            trans_id = trans_map[tid]
-            db.execute(
-                word_translation_association.insert().values(word_id=word_id, translation_id=trans_id)
-            )
+        word_pos = assoc.get("word_id") or assoc.get("word_position")
+        if word_pos not in word_map:
+            continue
+
+        word_id = word_map[word_pos]
+        trans_positions = assoc.get("translation_ids") or assoc.get("translation_positions", [])
+
+        for t_pos in set(trans_positions):   # set — убираем дубли на фронте
+            if t_pos in trans_map:
+                trans_id = trans_map[t_pos]
+                # Используем INSERT ... ON CONFLICT DO NOTHING (SQLite)
+                association = WordTranslationAssociation(word_id=word_id, translation_id=trans_id)
+                db.add(association)
 
     db.commit()
-    return {"status": "success", "message": "Сопоставления сохранены!"}
+    return {"status": "success"}
 
 
 @router.get("/{id}/matches")
