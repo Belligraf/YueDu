@@ -209,3 +209,37 @@ window.applyPosHighlight = function(element, posTag) {
     element.style.backgroundColor = window.posColors[posTag];
     element.classList.add(`pos-${posTag}`);
 };
+
+// Легенда цветов частей речи
+// ==================== ЛЕГЕНДА ЦВЕТОВ ====================
+window.showPosLegend = function() {
+    let legend = document.getElementById('pos-legend');
+    if (legend) {
+        legend.remove();
+        return;
+    }
+
+    const html = `
+        <div id="pos-legend" style="position:fixed; bottom:85px; right:30px; background:white; padding:18px; border-radius:12px;
+             box-shadow:0 10px 30px rgba(0,0,0,0.25); z-index:99999; max-width:340px; font-size:0.96rem;">
+            <h4 style="margin:0 0 12px 0; color:#1f2937;">🌈 Цвета частей речи</h4>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; line-height:1.6;">
+                <div><span style="background:#c5e0b4;padding:3px 8px;border-radius:4px;">Существительное</span></div>
+                <div><span style="background:#bdd7ee;padding:3px 8px;border-radius:4px;">Глагол</span></div>
+                <div><span style="background:#f7c6c6;padding:3px 8px;border-radius:4px;">Прилагательное</span></div>
+                <div><span style="background:#ffd966;padding:3px 8px;border-radius:4px;">Наречие</span></div>
+                <div><span style="background:#d5a6bd;padding:3px 8px;border-radius:4px;">Местоимение</span></div>
+                <div><span style="background:#c5d9f1;padding:3px 8px;border-radius:4px;">Числительное</span></div>
+                <div><span style="background:#e2efda;padding:3px 8px;border-radius:4px;">Союз</span></div>
+                <div><span style="background:#fde9a0;padding:3px 8px;border-radius:4px;">Предлог</span></div>
+            </div>
+            <small style="color:#666; margin-top:10px; display:block;">
+                Правый клик по китайскому слову → выбрать часть речи
+            </small>
+        </div>
+    `;
+
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    document.body.appendChild(div.firstElementChild);
+};
