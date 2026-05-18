@@ -1,5 +1,31 @@
 console.log("✅ modes.js загружен");
 
+// ====================== ЦВЕТОВОЙ КОНФИГ ======================
+window.colorConfig = {
+    // Основные цвета
+    linked: '#a7f3d0',           // цвет связанных слов (зелёный)
+    linkedBorder: '#10b981',     // бордер у связанных слов
+    selected: '#fef08a',         // цвет при выборе (жёлтый)
+    selectedBorder: '#eab308',
+    hover: '#fef9c3',            // цвет при наведении
+    tempHighlight: '#fef9c3',
+
+    // Цвета частей речи
+    posColors: {
+        'noun': '#c5e0b4',      // существительное
+        'verb': '#bdd7ee',      // глагол
+        'adj':  '#f7c6c6',      // прилагательное
+        'adv':  '#ffd966',      // наречие
+        'pron': '#d5a6bd',      // местоимение
+        'num':  '#c5d9f1',      // числительное
+        'conj': '#e2efda',      // союз
+        'prep': '#fde9a0',      // предлог
+        'intj': '#f9cb9c',      // междометие
+        'part': '#e6c3c3',      // частица
+        'unknown': 'transparent'
+    }
+};
+
 // Глобальные переменные
 window.selectedChineseWords = new Set();
 window.selectedRussianWords = new Set();
@@ -430,6 +456,8 @@ window.loadMatchesFromDB = async function() {
 window.highlightLinkedWords = function() {
     console.log("🔄 highlightLinkedWords с цветами POS");
 
+    const cfg = window.colorConfig;
+
     // 1. Китайские слова
     document.querySelectorAll('#original-text .chinese-word').forEach(span => {
         const idx = parseInt(span.getAttribute('data-idx'));
@@ -439,19 +467,15 @@ window.highlightLinkedWords = function() {
         const pos = window.currentWordsPos?.[idx];
 
         if (isLinked) {
-            // Если есть часть речи — используем её цвет
-            if (pos && pos !== 'unknown' && window.posColors && window.posColors[pos]) {
-                span.style.backgroundColor = window.posColors[pos];
-                span.style.borderBottom = '2px solid #10b981';
+            if (pos && pos !== 'unknown' && cfg.posColors[pos]) {
+                span.style.backgroundColor = cfg.posColors[pos];
             } else {
-                // Нет POS — просто зелёный
-                span.style.backgroundColor = '#a7f3d0';
-                span.style.borderBottom = '2px solid #10b981';
+                span.style.backgroundColor = cfg.linked;
             }
+            span.style.borderBottom = `2px solid ${cfg.linkedBorder}`;
         } else {
-            // Не связано — цвет по части речи (если есть)
-            if (pos && pos !== 'unknown' && window.posColors && window.posColors[pos]) {
-                span.style.backgroundColor = window.posColors[pos];
+            if (pos && pos !== 'unknown' && cfg.posColors[pos]) {
+                span.style.backgroundColor = cfg.posColors[pos];
                 span.style.borderBottom = '';
             } else {
                 span.style.backgroundColor = '';
@@ -470,8 +494,8 @@ window.highlightLinkedWords = function() {
 
         if (isLinked) {
             const color = getColorForRussianWord(idx);
-            span.style.backgroundColor = color || '#a7f3d0';
-            span.style.borderBottom = '2px solid #10b981';
+            span.style.backgroundColor = color || cfg.linked;
+            span.style.borderBottom = `2px solid ${cfg.linkedBorder}`;
         } else {
             span.style.backgroundColor = '';
             span.style.borderBottom = '';
@@ -665,22 +689,20 @@ window.toggleBlur = function() {
 };
 
 function getColorForRussianWord(russianIdx) {
-    // Найти все китайские индексы, связанные с этим русским словом
     const linkedChineseIndices = [];
     for (const [chIdx, ruIds] of Object.entries(window.currentMatches)) {
         if (ruIds.includes(russianIdx)) linkedChineseIndices.push(parseInt(chIdx));
     }
-    if (linkedChineseIndices.length === 0) return ''; // нет связи – прозрачный
-    // Ищем первый связанный китайский индекс, у которого есть part_of_speech
+    if (linkedChineseIndices.length === 0) return '';
+
     for (const chIdx of linkedChineseIndices) {
-        const pos = window.currentWordsPos ? window.currentWordsPos[chIdx] : null;
-        if (pos && pos !== 'unknown' && window.posColors && window.posColors[pos]) {
-            return window.posColors[pos]; // цвет части речи
+        const pos = window.currentWordsPos?.[chIdx];
+        if (pos && pos !== 'unknown' && window.colorConfig.posColors[pos]) {
+            return window.colorConfig.posColors[pos];
         }
     }
-    // Если ни у одного китайского слова нет части речи – зелёный
-    return '#d1fae5';
-};
+    return window.colorConfig.linked;
+}
 
 // ==================== ПЕРЕКЛЮЧЕНИЕ ПОДСВЕТКИ ====================
 window.toggleHighlight = function() {
