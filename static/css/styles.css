@@ -1,68 +1,55 @@
-/* Убираем все декоративные элементы */
+/* ====================== ОСНОВНЫЕ СТИЛИ ====================== */
 .chinese-word, .russian-word {
-    display: inline-block;
     cursor: pointer;
-    transition: background-color 0.2s ease;
-}
-
-/* Только для выделения (выбранные слова) */
-.chinese-word.selected-for-link, .russian-word.selected-for-link {
-    background-color: #fef08a;
-}
-
-.russian-word.temp-highlight {
-    background-color: #fef08a !important;
-}
-.chinese-word.temp-highlight {
-    background-color: #fef08a !important;
-}
-
-/* Только для уже связанных слов */
-.chinese-word.has-link, .russian-word.has-link {
-    background-color: #d1fae5;
-}
-
-/* Подсветка при наведении */
-.chinese-word:hover, .russian-word:hover {
-    background-color: #fef9c3;
-}
-
-/* Убираем всё с обычных слов */
-.chinese-word, .russian-word {
-    padding: 0;
-    margin: 0;
-    border: none;
-    border-radius: 0;
-}
-
-.chinese-word.has-link {
-    border-bottom: 2px solid #10b981;
-    /* не переопределяем background-color */
-}
-
-.chinese-word, .russian-word {
-    padding: 2px 4px;
-    margin: 1px 2px;
-    border-radius: 4px;
     transition: all 0.2s ease;
-    cursor: pointer;
+    border-radius: 3px;
 }
 
-/* Связанные слова */
-.chinese-word.has-link,
-.russian-word.has-link {
-    background-color: #d1fae5 !important;
-    border-bottom: 2px solid #10b981;
+/* ==================== КИТАЙСКИЙ ==================== */
+.chinese-word {
+    display: inline !important;
+    margin: 0 !important;
+    padding: 2px 1px !important;
 }
 
-/* Выделение при выборе */
+/* ==================== РУССКИЙ — СИЛЬНОЕ СЖАТИЕ ==================== */
+.russian-word {
+    display: inline !important;
+    margin: 0 !important;           /* убрали все margin */
+    padding: 2px 1px;
+}
+
+#translation-text {
+    word-spacing: -4px !important;   /* главное сжатие пробелов */
+    letter-spacing: -0.3px;
+    line-height: 1.7;
+}
+
+/* ====================== СОСТОЯНИЯ ====================== */
+
 .chinese-word.selected-for-link,
 .russian-word.selected-for-link {
     background-color: #fef08a !important;
     border: 2px solid #eab308;
 }
 
-/* Временная подсветка при наведении */
-.temp-highlight {
+.chinese-word.temp-highlight,
+.russian-word.temp-highlight {
     background-color: #fef9c3 !important;
+}
+
+.chinese-word.has-link,
+.russian-word.has-link {
+    background-color: #a7f3d0 !important;
+    border-bottom: 2px solid #10b981;
+}
+
+.chinese-word:hover,
+.russian-word:hover {
+    background-color: #fef9c3;
+}
+
+/* Приоритет связи */
+.chinese-word.has-link {
+    background-color: #a7f3d0 !important;
 }

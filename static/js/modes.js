@@ -162,7 +162,9 @@ window.loadParallelView = async function() {
     origDiv.innerHTML = '';
     origDiv.style.whiteSpace = 'pre-wrap';
     origDiv.style.lineHeight = '1.8';
-    origDiv.style.fontSize = '1.2rem';
+    origDiv.style.fontSize = '1.25rem';
+    origDiv.style.wordSpacing = '0';
+    origDiv.style.letterSpacing = '0';
 
     let chineseWordIndex = 0;
     window.currentWordsArray = [];
@@ -175,8 +177,10 @@ window.loadParallelView = async function() {
             const span = document.createElement('span');
             span.textContent = token;
             span.className = 'chinese-word';
-            span.style.display = 'inline-block';
+            span.style.display = 'inline';
+            span.style.margin = '0';
             span.style.cursor = 'pointer';
+            span.style.padding = '2px 1px';
             const idx = chineseWordIndex;
             span.setAttribute('data-idx', idx);
             window.currentWordsArray[idx] = token;
@@ -261,7 +265,7 @@ window.loadParallelView = async function() {
                     const wordSpan = document.createElement('span');
                     wordSpan.textContent = currentWord;
                     wordSpan.className = 'russian-word';
-                    wordSpan.style.display = 'inline-block';
+                    wordSpan.style.display = 'inline';
                     wordSpan.style.cursor = 'pointer';
                     wordSpan.setAttribute('data-idx', russianWordIndex);
                     window.currentTransArray[russianWordIndex] = currentWord;
@@ -329,7 +333,7 @@ window.loadParallelView = async function() {
             const wordSpan = document.createElement('span');
             wordSpan.textContent = currentWord;
             wordSpan.className = 'russian-word';
-            wordSpan.style.display = 'inline-block';
+            wordSpan.style.display = 'inline';
             wordSpan.style.cursor = 'pointer';
             wordSpan.setAttribute('data-idx', russianWordIndex);
             window.currentTransArray[russianWordIndex] = currentWord;
