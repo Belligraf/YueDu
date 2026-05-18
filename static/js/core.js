@@ -182,17 +182,17 @@ window.escapeHtml = function(text) {
 
 
 window.posColors = {
-    'noun': '#c5e0b4',      // существительное
-    'verb': '#bdd7ee',      // глагол
-    'adj': '#f7c6c6',       // прилагательное
-    'adv': '#ffd966',       // наречие
-    'pron': '#d5a6bd',      // местоимение
-    'num': '#c5d9f1',       // числительное
-    'conj': '#e2efda',      // союз
-    'prep': '#fde9a0',      // предлог
-    'intj': '#f9cb9c',      // междометие
-    'part': '#e6c3c3',      // частица
-    'unknown': 'transparent'
+    'noun':     '#a7f3d0',   // светло-зелёный — существительное
+    'verb':     '#bae6fd',   // голубой — глагол
+    'adj':      '#fed7aa',   // оранжевый — прилагательное
+    'adv':      '#fde047',   // ярко-жёлтый — наречие
+    'pron':     '#e9d5ff',   // фиолетовый — местоимение
+    'num':      '#bfdbfe',   // синий — числительное
+    'conj':     '#bbf7d0',   // салатовый — союз
+    'prep':     '#fed7e6',   // розовый — предлог
+    'intj':     '#fed7aa',   // оранжевый — междометие
+    'part':     '#ddd6fe',   // индиго — частица
+    'unknown':  'transparent'
 };
 
 window.applyPosHighlight = function(element, posTag) {
@@ -219,21 +219,25 @@ window.showPosLegend = function() {
         return;
     }
 
+    const colors = window.posColors || {};
+
     const html = `
         <div id="pos-legend" style="position:fixed; bottom:85px; right:30px; background:white; padding:18px; border-radius:12px;
-             box-shadow:0 10px 30px rgba(0,0,0,0.25); z-index:99999; max-width:340px; font-size:0.96rem;">
+             box-shadow:0 10px 30px rgba(0,0,0,0.25); z-index:99999; max-width:380px; font-size:0.95rem;">
             <h4 style="margin:0 0 12px 0; color:#1f2937;">🌈 Цвета частей речи</h4>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; line-height:1.6;">
-                <div><span style="background:#c5e0b4;padding:3px 8px;border-radius:4px;">Существительное</span></div>
-                <div><span style="background:#bdd7ee;padding:3px 8px;border-radius:4px;">Глагол</span></div>
-                <div><span style="background:#f7c6c6;padding:3px 8px;border-radius:4px;">Прилагательное</span></div>
-                <div><span style="background:#ffd966;padding:3px 8px;border-radius:4px;">Наречие</span></div>
-                <div><span style="background:#d5a6bd;padding:3px 8px;border-radius:4px;">Местоимение</span></div>
-                <div><span style="background:#c5d9f1;padding:3px 8px;border-radius:4px;">Числительное</span></div>
-                <div><span style="background:#e2efda;padding:3px 8px;border-radius:4px;">Союз</span></div>
-                <div><span style="background:#fde9a0;padding:3px 8px;border-radius:4px;">Предлог</span></div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; line-height:1.7;">
+                <div><span style="background:${colors.noun || '#a7f3d0'}; padding:3px 8px; border-radius:4px;">Существительное</span></div>
+                <div><span style="background:${colors.verb || '#bae6fd'}; padding:3px 8px; border-radius:4px;">Глагол</span></div>
+                <div><span style="background:${colors.adj || '#fed7aa'}; padding:3px 8px; border-radius:4px;">Прилагательное</span></div>
+                <div><span style="background:${colors.adv || '#fde047'}; padding:3px 8px; border-radius:4px;">Наречие</span></div>
+                <div><span style="background:${colors.pron || '#e9d5ff'}; padding:3px 8px; border-radius:4px;">Местоимение</span></div>
+                <div><span style="background:${colors.num || '#bfdbfe'}; padding:3px 8px; border-radius:4px;">Числительное</span></div>
+                <div><span style="background:${colors.conj || '#bbf7d0'}; padding:3px 8px; border-radius:4px;">Союз</span></div>
+                <div><span style="background:${colors.prep || '#fed7e6'}; padding:3px 8px; border-radius:4px;">Предлог</span></div>
+                <div><span style="background:${colors.intj || '#fed7aa'}; padding:3px 8px; border-radius:4px;">Междометие</span></div>
+                <div><span style="background:${colors.part || '#ddd6fe'}; padding:3px 8px; border-radius:4px;">Частица</span></div>
             </div>
-            <small style="color:#666; margin-top:10px; display:block;">
+            <small style="color:#666; margin-top:12px; display:block;">
                 Правый клик по китайскому слову → выбрать часть речи
             </small>
         </div>

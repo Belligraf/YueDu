@@ -27,7 +27,7 @@
         </div>
     </div>
 
-    <!-- КОНТЕНТ ВКЛАДОК (ЗАГРУЗИТСЯ АВТОМАТИЧЕСКИ) -->
+    <!-- КОНТЕНТ ВКЛАДОК -->
     <div id="content-container"></div>
 
     <!-- БИБЛИОТЕКА СПРАВА -->
@@ -44,31 +44,18 @@
         </div>
     </div>
 
-    <!-- ПОПАП ПЕРЕВОДА -->
+    <!-- ПОПАП -->
     <div id="popup" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div class="bg-white p-6 rounded-xl max-w-2xl w-full mx-4 shadow-2xl flex flex-col max-h-[80vh]">
-            <div class="flex justify-between items-start mb-2">
-                <div>
-                    <h2 id="popupWord" class="text-3xl font-bold text-blue-800"></h2>
-                    <p id="popupPinyin" class="text-xl text-green-700 italic mt-1"></p>
-                </div>
-                <button onclick="closePopup()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-            </div>
-            <div id="popupTranslation" class="mt-4 overflow-y-auto pr-2 text-gray-800 border-t pt-4"></div>
-            <button onclick="closePopup()" class="mt-6 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 self-end">
-                Понятно
-            </button>
-        </div>
+        <!-- заполняется JS -->
     </div>
 
-    <!-- JS МОДУЛИ -->
+    <!-- JS -->
     <script src="/static/js/core.js"></script>
     <script src="/static/js/popup.js"></script>
     <script src="/static/js/matches.js"></script>
     <script src="/static/js/modes.js"></script>
     <script src="/static/js/library.js"></script>
 
-    <!-- Автозагрузка вкладок -->
     <script>
     async function loadTabContent(tabName) {
         const container = document.getElementById('content-container');
@@ -80,7 +67,7 @@
     document.addEventListener('DOMContentLoaded', async () => {
         await loadTabContent('simple');
         loadLibrary();
-        console.log("✅ Готово!");
+        console.log("✅ YueDu — старый дизайн загружен");
     });
     </script>
 </body>

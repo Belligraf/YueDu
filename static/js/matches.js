@@ -365,57 +365,56 @@ window.showPartMenu = function(x, y, wordIdx, wordText) {
     }, 0);
 };
 
+// ========== ЕДИНАЯ АКТУАЛЬНАЯ ВЕРСИЯ ==========
 window.updatePartOfSpeech = async function(wordIdx, newPos) {
-    const wordId = window.currentWordsIds?.[wordIdx];
-    if (!wordId) return;
-    try {
-        const res = await fetch(`/api/library/words/${wordId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ part_of_speech: newPos })
-        });
-        if (res.ok) {
-            window.currentWordsPos[wordIdx] = newPos;
-            const span = document.querySelector(`.chinese-word[data-idx='${wordIdx}']`);
-            if (span) {
-                if (newPos && newPos !== 'unknown' && window.posColors[newPos]) {
-                    span.style.backgroundColor = window.posColors[newPos];
-                } else {
-                    span.style.backgroundColor = '';
-                }
-            }
-            // Пересчитать цвета всех связанных русских слов
-            const linkedRussian = window.currentMatches[wordIdx] || [];
-            for (const ruIdx of linkedRussian) {
-                const ruSpan = document.querySelector(`.russian-word[data-idx='${ruIdx}']`);
-                if (ruSpan) {
-                    const newColor = getColorForRussianWord(ruIdx);
-                    ruSpan.style.backgroundColor = newColor;
-                }
-            }
-        }
-    } catch(e) { console.error(e); }
-};
-
-window.updatePartOfSpeech = async function(wordIdx, newPos) {
-    // Найти глобальный ID слова (у нас есть currentWordsIds массив, нужно заполнить при загрузке)
     const wordId = window.currentWordsIds?.[wordIdx];
     if (!wordId) {
-        console.warn("Нет ID слова");
+        console.warn(`updatePartOfSpeech: wordId не найден для idx=${wordIdx}`);
         return;
     }
+
     try {
+        console.log(`🔄 Обновляем POS: слово[${wordIdx}] → ${newPos}`);
+
         const response = await fetch(`/api/library/words/${wordId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ part_of_speech: newPos })
         });
+
         if (response.ok) {
-            // Обновить локальный массив
+            // Обновляем локальные данные
             window.currentWordsPos[wordIdx] = newPos;
-            // Найти соответствующий DOM-элемент и применить подсветку
-            const targetSpan = document.querySelector(`.chinese-word[data-idx='${wordIdx}']`);
-            if (targetSpan) window.applyPosHighlight(targetSpan, newPos);
+
+            // Обновляем китайское слово
+            const chSpan = document.querySelector(`.chinese-word[data-idx='${wordIdx}']`);
+            if (chSpan) {
+                if (newPos && newPos !== 'unknown' && window.posColors?.[newPos]) {
+                    chSpan.style.backgroundColor = window.posColors[newPos];
+                } else {
+                    chSpan.style.backgroundColor = '';
+                }
+            }
+
+            // Обновляем ВСЕ связанные русские слова
+            const linkedRuIndices = window.currentMatches?.[wordIdx] || [];
+            linkedRuIndices.forEach(ruIdx => {
+                const ruSpan = document.querySelector(`.russian-word[data-idx='${ruIdx}']`);
+                if (ruSpan) {
+                    const newColor = getColorForRussianWord(ruIdx);
+                    ruSpan.style.backgroundColor = newColor;
+                    console.log(`   → Обновлён цвет русского слова[${ruIdx}] = ${newColor}`);
+                }
+            });
+
+            // Дополнительная перерисовка (на всякий случай)
+            if (typeof window.highlightLinkedWords === 'function') {
+                window.highlightLinkedWords();
+            }
+
+            console.log(`✅ POS успешно обновлён для слова ${wordIdx}`);
         }
-    } catch(e) { console.error(e); }
+    } catch (e) {
+        console.error("Ошибка обновления части речи:", e);
+    }
 };

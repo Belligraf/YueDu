@@ -39,3 +39,30 @@
     border-bottom: 2px solid #10b981;
     /* не переопределяем background-color */
 }
+
+.chinese-word, .russian-word {
+    padding: 2px 4px;
+    margin: 1px 2px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+/* Связанные слова */
+.chinese-word.has-link,
+.russian-word.has-link {
+    background-color: #d1fae5 !important;
+    border-bottom: 2px solid #10b981;
+}
+
+/* Выделение при выборе */
+.chinese-word.selected-for-link,
+.russian-word.selected-for-link {
+    background-color: #fef08a !important;
+    border: 2px solid #eab308;
+}
+
+/* Временная подсветка при наведении */
+.temp-highlight {
+    background-color: #fef9c3 !important;
+}
