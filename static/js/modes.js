@@ -366,6 +366,10 @@ window.loadParallelView = async function() {
             transDiv.appendChild(wordSpan);
         }
     }
+    if (transDiv) {
+        // Восстанавливаем состояние блюра после перерисовки
+        applyCurrentBlurState(transDiv);
+    }
 
     window.createControlPanel();
 
@@ -674,19 +678,35 @@ window.saveAllLinksToDB = async function() {
     }
 };
 
+// ========== ТОГГЛ БЛЮРА (исправленная версия) ==========
 window.toggleBlur = function() {
     const transDiv = document.getElementById('translation-text');
     if (!transDiv) return;
+
     window.isBlurred = !window.isBlurred;
+
     const btn = document.getElementById('blurBtn');
-    if (window.isBlurred) {
-        transDiv.classList.add('blur-sm');
-        if (btn) btn.textContent = '👁️ Показать перевод';
-    } else {
-        transDiv.classList.remove('blur-sm');
-        if (btn) btn.textContent = '🙈 Скрыть перевод';
+    if (btn) {
+        if (window.isBlurred) {
+            btn.textContent = '👁️ Показать перевод';
+        } else {
+            btn.textContent = '🙈 Скрыть перевод';
+        }
     }
+
+    applyCurrentBlurState(transDiv);
 };
+
+// Применяем текущее состояние блюра
+function applyCurrentBlurState(container) {
+    if (!container) return;
+
+    if (window.isBlurred) {
+        container.classList.add('blur-sm');
+    } else {
+        container.classList.remove('blur-sm');
+    }
+}
 
 function getColorForRussianWord(russianIdx) {
     const linkedChineseIndices = [];
