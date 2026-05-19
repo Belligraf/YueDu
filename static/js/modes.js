@@ -102,11 +102,9 @@ window.showTab = async function(tabName) {
     }, 100);
 };
 
-// ========== ПРОСТОЙ РЕЖИМ ==========
-// ========== ПРОСТОЙ РЕЖИМ ==========
+// ========== ПРОСТОЙ РЕЖИМ — РИДЕР ==========
 window.processText = async function() {
     const input = document.getElementById('inputText');
-    const translationInput = document.getElementById('inputTranslation');
     const resultDiv = document.getElementById('result');
 
     if (!input || !resultDiv) return;
@@ -118,7 +116,7 @@ window.processText = async function() {
     }
 
     window.currentOriginalText = text;
-    window.currentTranslationText = translationInput?.value.trim() || '';
+    window.currentTranslationText = document.getElementById('inputTranslation')?.value.trim() || '';
 
     try {
         const response = await fetch('/api/segment/segment', {
@@ -127,33 +125,32 @@ window.processText = async function() {
             body: JSON.stringify({ text: text })
         });
 
-        if (response.ok) {
-            const data = await response.json();
-            window.currentSegmentedWords = data.words || [];
-        }
+        const data = await response.json();
+        window.currentSegmentedWords = data.words || [];
     } catch (err) {
         console.error("Ошибка сегментации:", err);
-        window.currentSegmentedWords = text.split(''); // fallback
+        window.currentSegmentedWords = text.split('');
     }
 
-    // === ОТРИСОВКА РЕЗУЛЬТАТА В ПРОСТОМ РЕЖИМЕ ===
-    if (resultDiv) {
-        resultDiv.innerHTML = window.currentSegmentedWords
-            .map(word => {
-                if (/[\u4e00-\u9fff]/.test(word)) {
-                    return `<span class="chinese-word" style="padding:2px 6px; margin:1px; border-radius:4px; cursor:pointer;">${word}</span>`;
-                }
-                return word === '\n' ? '<br>' : word;
-            })
-            .join('');
-    }
+    // === КРАСИВАЯ ОТРИСОВКА С КЛИКАМИ ===
+    resultDiv.innerHTML = window.currentSegmentedWords
+        .map(token => {
+            if (/[\u4e00-\u9fff]/.test(token)) {
+                return `<span class="chinese-word inline-block px-2 py-1 mx-0.5 my-1 rounded-lg bg-white border border-gray-200 hover:bg-blue-50 cursor-pointer transition-all"
+                            onclick="window.showTranslationFromDictionary('${token}')">
+                            ${token}
+                        </span>`;
+            }
+            else if (token === '\n') {
+                return '<br><br>';
+            }
+            else {
+                return token;
+            }
+        })
+        .join('');
 
-    console.log("✅ Текст разбит на слова и отображён");
-
-    // Автоматически переключаемся в параллельный режим
-    setTimeout(() => {
-        window.showTab('parallel');
-    }, 300);
+    console.log("✅ Ридер: текст разбит и готов к чтению");
 };
 
 // ========== ПАРАЛЛЕЛЬНЫЙ РЕЖИМ ==========
@@ -820,6 +817,38 @@ window.breakSelectedLinks = function() {
     } else {
         alert("Не найдено связей для выбранных слов");
     }
+};
+
+window.processTextForReader = function() {
+    const contentDiv = document.getElementById('reader-content');
+    if (!contentDiv) return;
+
+    const text = window.currentOriginalText || '';
+    if (!text) return;
+
+    fetch('/api/segment/segment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: text })
+    })
+    .then(r => r.json())
+    .then(data => {
+        let html = '';
+        (data.words || []).forEach(token => {
+            if (/[\u4e00-\u9fff]/.test(token)) {
+                html += `<span class="reader-word px-2 py-1 mx-0.5 rounded hover:bg-blue-100 cursor-pointer transition"
+                            onclick="window.showTranslationFromDictionary('${token}')">${token}</span>`;
+            } else if (token === '\n') {
+                html += '<br><br>';
+            } else {
+                html += token;
+            }
+        });
+        contentDiv.innerHTML = html;
+    })
+    .catch(() => {
+        contentDiv.innerHTML = '<p class="text-red-500">Ошибка загрузки</p>';
+    });
 };
 
 // Делаем функции глобальными

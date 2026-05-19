@@ -139,3 +139,83 @@ window.deleteText = async function(id, event) {
         }
     } catch(e) { console.error(e); }
 };
+
+// ========== ВЫБОР РЕЖИМА ИЗ БИБЛИОТЕКИ ==========
+let currentSelectedTextId = null;
+
+window.loadText = function(id) {
+    currentSelectedTextId = id;
+    document.getElementById('modeSelectorModal').classList.remove('hidden');
+};
+
+window.closeModeSelector = function() {
+    document.getElementById('modeSelectorModal').classList.add('hidden');
+};
+
+window.openInReader = async function() {
+    window.closeModeSelector();
+
+    if (!currentSelectedTextId) return;
+
+    const id = currentSelectedTextId;
+
+    try {
+        const res = await fetch(`/api/library/${id}`);
+        if (!res.ok) throw new Error('Ошибка загрузки');
+
+        const textData = await res.json();
+
+        window.currentOriginalText = textData.content || '';
+        window.currentEditId = textData.id;
+
+        // Переключаемся в режим Ридер
+        await window.showTab('simple');
+
+        // Автоматически разбиваем и показываем текст
+        setTimeout(() => {
+            window.processTextForReader();
+        }, 150);
+
+    } catch (e) {
+        console.error(e);
+        alert("Не удалось открыть текст в режиме Ридер");
+    }
+};
+
+window.openInParallel = async function() {
+    window.closeModeSelector();
+    if (!currentSelectedTextId) return;
+
+    const id = currentSelectedTextId;
+    try {
+        const res = await fetch(`/api/library/${id}`);
+        const text = await res.json();
+
+        window.currentOriginalText = text.content || '';
+        window.currentTranslationText = text.translation || '';
+        window.currentEditId = text.id;
+
+        await window.showTab('parallel');
+    } catch (e) {
+        alert("Ошибка открытия в Параллельном ридере");
+    }
+};
+
+window.openInMatch = async function() {
+    window.closeModeSelector();
+    if (!currentSelectedTextId) return;
+
+    const id = currentSelectedTextId;
+    try {
+        const res = await fetch(`/api/library/${id}`);
+        const text = await res.json();
+
+        window.currentOriginalText = text.content || '';
+        window.currentTranslationText = text.translation || '';
+        window.currentEditId = text.id;
+
+        await window.showTab('match');
+    } catch (e) {
+        alert("Ошибка открытия в режиме Сопоставления");
+    }
+};
