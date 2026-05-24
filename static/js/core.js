@@ -247,3 +247,45 @@ window.showPosLegend = function() {
     div.innerHTML = html;
     document.body.appendChild(div.firstElementChild);
 };
+
+// ====================== ПОКАЗ ПЕРЕВОДА ======================
+window.showWordTranslations = async function(word, idx) {
+    console.log(`🔍 Запрос перевода для: "${word}"`);
+
+    try {
+        const res = await fetch(`/api/dictionary/translate/${encodeURIComponent(word)}`);
+        let translations = [];
+
+        if (res.ok) {
+            const data = await res.json();
+            if (data.translation) {
+                translations = [data.translation];
+            }
+        }
+
+        // Если ничего не нашли — показываем пустой попап
+        if (translations.length === 0) {
+            translations = ["Перевод не найден в словаре"];
+        }
+
+        // Получаем позицию кликнутого слова
+        const activeElement = document.querySelector(`.chinese-word[data-word-idx="${idx}"]`) ||
+                             document.querySelector(`.chinese-word[data-idx="${idx}"]`);
+
+        let x = window.innerWidth / 2;
+        let y = window.innerHeight / 2;
+
+        if (activeElement) {
+            const rect = activeElement.getBoundingClientRect();
+            x = rect.right + 10;   // справа от слова
+            y = rect.top;
+        }
+
+        // Вызываем красивый всплывающий попап
+        window.showTranslationPopup(word, translations, false, x, y);
+
+    } catch (e) {
+        console.error("Ошибка получения перевода:", e);
+        window.showTranslationPopup(word, ["Ошибка соединения с словарём"], false);
+    }
+};

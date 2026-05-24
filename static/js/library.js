@@ -166,15 +166,28 @@ window.openInReader = async function() {
         const textData = await res.json();
 
         window.currentOriginalText = textData.content || '';
+        window.currentTranslationText = textData.translation || '';
         window.currentEditId = textData.id;
 
-        // Переключаемся в режим Ридер
-        await window.showTab('simple');
+        // Надёжное переключение на Ридер
+        if (typeof window.showTab === 'function') {
+            await window.showTab('simple');
+        } else {
+            // Запасной вариант, если showTab ещё не загрузился
+            console.warn("showTab не готов, используем прямую вставку");
+            const container = document.getElementById('content-container');
+            if (container) {
+                const html = await (await fetch('/static/modes/simple.html')).text();
+                container.innerHTML = html;
+            }
+        }
 
-        // Автоматически разбиваем и показываем текст
+        // Запускаем отображение текста
         setTimeout(() => {
-            window.processTextForReader();
-        }, 150);
+            if (typeof window.processTextForReader === 'function') {
+                window.processTextForReader();
+            }
+        }, 300);
 
     } catch (e) {
         console.error(e);
@@ -185,8 +198,8 @@ window.openInReader = async function() {
 window.openInParallel = async function() {
     window.closeModeSelector();
     if (!currentSelectedTextId) return;
-
     const id = currentSelectedTextId;
+
     try {
         const res = await fetch(`/api/library/${id}`);
         const text = await res.json();
@@ -197,15 +210,15 @@ window.openInParallel = async function() {
 
         await window.showTab('parallel');
     } catch (e) {
-        alert("Ошибка открытия в Параллельном ридере");
+        alert("Ошибка открытия Параллельного ридера");
     }
 };
 
 window.openInMatch = async function() {
     window.closeModeSelector();
     if (!currentSelectedTextId) return;
-
     const id = currentSelectedTextId;
+
     try {
         const res = await fetch(`/api/library/${id}`);
         const text = await res.json();
@@ -216,6 +229,6 @@ window.openInMatch = async function() {
 
         await window.showTab('match');
     } catch (e) {
-        alert("Ошибка открытия в режиме Сопоставления");
+        alert("Ошибка открытия режима Сопоставления");
     }
 };

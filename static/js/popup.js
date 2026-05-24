@@ -1,54 +1,69 @@
-console.log("✅ popup.js загружен");
+console.log("✅ popup.js — всплывающий рядом со словом (финал)");
 
-// Глобальная функция показа попапа
-window.showTranslationPopup = function(word, translations = [], fromMatches = false) {
-  console.log("📖 Показ попапа для:", word);
+window.showTranslationPopup = function(word, translations = [], fromMatches = false, clientX = null, clientY = null) {
+    console.log("📖 Попап для:", word);
 
-  const popup = document.getElementById('popup');
-  const popupWord = document.getElementById('popupWord');
-  const popupTranslation = document.getElementById('popupTranslation');
+    let old = document.getElementById('popup');
+    if (old) old.remove();
 
-  if (!popup) {
-    console.error("Popup element not found");
-    return;
-  }
+    const popup = document.createElement('div');
+    popup.id = 'popup';
+    popup.style.cssText = `
+        position: fixed !important;
+        background: white;
+        border-radius: 14px;
+        box-shadow: 0 20px 50px -12px rgba(0,0,0,0.55);
+        z-index: 2147483647 !important;
+        width: 340px;
+        max-height: 520px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid #cbd5e1;
+    `;
 
-  if (popupWord) popupWord.textContent = word;
+    let content = translations && translations.length ?
+        translations.map(t => `
+            <div style="margin-bottom:16px; padding:15px; background:#f8fafc; border-radius:10px; font-size:16px; line-height:1.6; white-space:pre-wrap;">
+                ${t.replace(/\n/g, '<br>')}
+            </div>
+        `).join('') :
+        `<div style="padding:50px 20px; text-align:center; color:#ef4444;">Перевод не найден</div>`;
 
-  if (popupTranslation) {
-    if (translations && translations.length > 0) {
-      popupTranslation.innerHTML = translations.map(t => `• ${t}`).join('<br>');
-      if (fromMatches) {
-        popupTranslation.innerHTML += '<br><br><span class="text-green-500 text-sm">✓ Из ваших сопоставлений</span>';
-      }
-    } else {
-      popupTranslation.innerHTML = `
-        <div class="text-red-500 font-bold">❌ Перевод не найден</div>
-        <br>
-        <div class="text-gray-700">💡 <strong>Как добавить перевод:</strong></div>
-        <div class="text-gray-600 mt-2">1. Перейдите во вкладку <b class="text-purple-600">«Сопоставить слова»</b></div>
-        <div class="text-gray-600">2. Нажмите на слово, которое хотите перевести</div>
-        <div class="text-gray-600">3. Выберите нужные фразы перевода</div>
-        <div class="text-gray-600">4. Нажмите <b>«Сохранить»</b></div>
-        <div class="text-gray-600 mt-2">5. Сохраните текст, чтобы сопоставления не потерялись</div>
-      `;
-    }
-  }
+    popup.innerHTML = `
+        <div style="padding:14px 18px; background:#f1f5f9; border-bottom:1px solid #e2e8f0; font-size:20px; font-weight:700; display:flex; justify-content:space-between; align-items:center;">
+            ${word}
+            <span onclick="window.closePopup()" style="cursor:pointer; font-size:30px; color:#64748b;">×</span>
+        </div>
+        <div style="flex:1; padding:18px; overflow-y:auto; max-height:420px; font-size:16px; line-height:1.65;">
+            ${content}
+        </div>
+    `;
 
-  popup.classList.remove('hidden');
+    document.body.appendChild(popup);
+
+    // Позиционирование рядом с кликом
+    const width = 340;
+    let x = clientX ? clientX + 15 : window.innerWidth / 2 - width/2;
+    let y = clientY ? clientY + 10 : window.innerHeight / 2 - 200;
+
+    // Не вылезать за экран
+    if (x + width > window.innerWidth) x = window.innerWidth - width - 20;
+    if (y + 500 > window.innerHeight) y = window.innerHeight - 520;
+    if (x < 10) x = 10;
+    if (y < 10) y = 10;
+
+    popup.style.left = x + 'px';
+    popup.style.top = y + 'px';
 };
 
 window.closePopup = function() {
-  const popup = document.getElementById('popup');
-  if (popup) popup.classList.add('hidden');
+    const p = document.getElementById('popup');
+    if (p) p.remove();
 };
 
-// Закрытие по клику вне попапа
-document.addEventListener('click', function(event) {
-  const popup = document.getElementById('popup');
-  if (!popup || popup.classList.contains('hidden')) return;
-
-  if (event.target === popup) {
-    window.closePopup();
-  }
+document.addEventListener('keydown', e => { if (e.key === "Escape") window.closePopup(); });
+document.addEventListener('click', e => {
+    const p = document.getElementById('popup');
+    if (p && e.target === p) window.closePopup();
 });

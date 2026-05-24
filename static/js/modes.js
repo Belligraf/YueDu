@@ -208,31 +208,17 @@ window.loadParallelView = async function() {
             span.setAttribute('data-idx', idx);
             window.currentWordsArray[idx] = token;
 
-            // Клик для выделения
-            span.onclick = (function(i, el) {
-                return function(e) {
-                    e.stopPropagation();
-                    if (window.selectedChineseWords.has(i)) {
-                        window.selectedChineseWords.delete(i);
-                        el.classList.remove('selected-for-link');
-                    } else {
-                        window.selectedChineseWords.add(i);
-                        el.classList.add('selected-for-link');
-                    }
-                    window.updateLinkButtonState();
-                };
-            })(idx, span);
+            span.onclick = function(e) {
+                e.stopPropagation();
+                window.showWordTranslations(token, chineseWordIndex);
+            };
 
-            // Правый клик — меню части речи
-            span.oncontextmenu = (function(i, w) {
-                return function(e) {
-                    e.preventDefault();
-                    if (typeof window.showPartMenu === 'function') {
-                        window.showPartMenu(e.clientX, e.clientY, i, w);
-                    }
-                    return false;
-                };
-            })(idx, token);
+            span.oncontextmenu = function(e) {
+                e.preventDefault();
+                if (typeof window.showPartMenu === 'function') {
+                    window.showPartMenu(e.clientX, e.clientY, chineseWordIndex, token);
+                }
+            };
 
             // Наведение
             span.onmouseenter = (function(i) {
@@ -613,19 +599,158 @@ window.clearSelections = function() {
     window.updateLinkButtonState();
 };
 
-window.showTranslationFromDictionary = async function(word) {
+// ========== НОВЫЕ ФУНКЦИИ ДЛЯ ПОПАПА ==========
+window.showTranslationFromDictionary = async function(word, element = null, event = null) {
     try {
         const res = await fetch(`/api/dictionary/translate/${encodeURIComponent(word)}`);
-        if (res.ok) {
-            const data = await res.json();
-            if (data.translation) {
-                window.showTranslationPopup(word, [data.translation]);
-                return;
-            }
+        const data = await res.json();
+
+        let translationText = "Перевод не найден";
+        if (data.translation) {
+            translationText = data.translation;
         }
-        window.showTranslationPopup(word, []);
-    } catch(e) {}
+
+        const pinyin = data.pinyin || '';
+
+        showPositionedPopup(word, translationText, pinyin, element, event);
+
+    } catch (e) {
+        console.error(e);
+        showPositionedPopup(word, "Ошибка при получении перевода", '', element, event);
+    }
 };
+
+// Старый попап теперь перенаправляет на новый (защита)
+function showSimpleTranslationPopup(word, translation, element = null, event = null) {
+    showPositionedPopup(word, translation, '', element, event);
+}
+
+// === ГЛАВНАЯ ФУНКЦИЯ — маленький попап рядом со словом ===
+function showPositionedPopup(word, translation, pinyin = '', element = null, event = null) {
+    // Удаляем старый попап
+    const old = document.getElementById('simple-popup');
+    if (old) old.remove();
+
+    const popup = document.createElement('div');
+    popup.id = 'simple-popup';
+    popup.style.cssText = `
+        position: fixed;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 20px 50px -12px rgba(0,0,0,0.55);
+        z-index: 99999;
+        width: 380px;
+        max-height: 520px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid #e2e8f0;
+        font-size: 15px;
+    `;
+
+    let formatted = translation
+        .replace(/→/g, '→')
+        .replace(/\d+\)/g, m => `<strong>${m}</strong>`);
+
+    const pinyinHTML = pinyin
+        ? `<div style="font-size:15px; color:#64748b; margin-bottom:10px; font-family:monospace; font-weight:600;">${pinyin}</div>`
+        : '';
+
+    popup.innerHTML = `
+        <div style="padding:16px 20px; background:#f8fafc; border-bottom:1px solid #e2e8f0; font-size:22px; font-weight:700; color:#1f2937; display:flex; justify-content:space-between; align-items:center;">
+            ${word}
+            <span onclick="document.getElementById('simple-popup').remove()" style="cursor:pointer; font-size:28px; color:#64748b; line-height:1;">×</span>
+        </div>
+        <div style="flex:1; padding:20px; overflow-y:auto; line-height:1.65; color:#374151; max-height:420px;">
+            ${pinyinHTML}
+            ${formatted}
+        </div>
+        <div style="padding:12px 20px; border-top:1px solid #e2e8f0; text-align:right; background:#f8fafc;">
+            <button onclick="document.getElementById('simple-popup').remove()"
+                    style="background:#3b82f6; color:white; border:none; padding:8px 18px; border-radius:8px; cursor:pointer; font-weight:500;">
+                Закрыть
+            </button>
+        </div>
+    `;
+
+    document.body.appendChild(popup);
+
+    // === УМНОЕ ПОЗИЦИОНИРОВАНИЕ ===
+    let x = window.innerWidth / 2 - 190;
+    let y = window.innerHeight / 2 - 200;
+
+    // Приоритет: элемент → event → центр
+    if (element && element.getBoundingClientRect) {
+        const rect = element.getBoundingClientRect();
+        x = rect.right + 15;
+        y = rect.top - 10;
+    } else if (event && event.clientX) {
+        x = event.clientX + 20;
+        y = event.clientY - 30;
+    }
+
+    // Не вылезать за экран
+    const w = 380, h = 520;
+    if (x + w > window.innerWidth - 10) x = window.innerWidth - w - 15;
+    if (x < 10) x = 10;
+    if (y + h > window.innerHeight - 10) y = window.innerHeight - h - 15;
+    if (y < 10) y = 10;
+
+    popup.style.left = `${x}px`;
+    popup.style.top = `${y}px`;
+
+    // Закрытие по клику вне
+    setTimeout(() => {
+        document.addEventListener('click', function handler(ev) {
+            if (!popup.contains(ev.target)) {
+                popup.remove();
+                document.removeEventListener('click', handler);
+            }
+        }, { once: true });
+    }, 80);
+}
+
+// Простой и надёжный попап (создаёт содержимое сам)
+function showSimpleTranslationPopup(word, translation) {
+    // Удаляем старый попап, если есть
+    const oldPopup = document.getElementById('simple-popup');
+    if (oldPopup) oldPopup.remove();
+
+    const popup = document.createElement('div');
+    popup.id = 'simple-popup';
+    popup.style.cssText = `
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+    `;
+
+    popup.innerHTML = `
+        <div style="background: white; border-radius: 16px; padding: 24px; max-width: 420px; width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+            <div style="font-size: 22px; font-weight: 700; margin-bottom: 12px; color: #1f2937;">
+                ${word}
+            </div>
+            <div style="font-size: 16px; color: #374151; line-height: 1.6; white-space: pre-wrap;">
+                ${translation}
+            </div>
+            <div style="margin-top: 20px; text-align: right;">
+                <button onclick="document.getElementById('simple-popup').remove()"
+                        style="background: #3b82f6; color: white; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer;">
+                    Закрыть
+                </button>
+            </div>
+        </div>
+    `;
+
+    // Закрытие по клику на фон
+    popup.onclick = function(e) {
+        if (e.target === popup) popup.remove();
+    };
+    document.body.appendChild(popup);
+}
 
 window.saveAllLinksToDB = async function() {
     if (!window.currentEditId) return;
@@ -836,8 +961,11 @@ window.processTextForReader = function() {
         let html = '';
         (data.words || []).forEach(token => {
             if (/[\u4e00-\u9fff]/.test(token)) {
-                html += `<span class="reader-word px-2 py-1 mx-0.5 rounded hover:bg-blue-100 cursor-pointer transition"
-                            onclick="window.showTranslationFromDictionary('${token}')">${token}</span>`;
+                html += `<span class="reader-word"
+                            style="display:inline; margin:0; padding:2px 1px; cursor:pointer;"
+                            onclick="window.showTranslationFromDictionary('${token.replace(/'/g, "\\'")}')">
+                            ${token}
+                        </span>`;
             } else if (token === '\n') {
                 html += '<br><br>';
             } else {
@@ -846,12 +974,16 @@ window.processTextForReader = function() {
         });
         contentDiv.innerHTML = html;
     })
-    .catch(() => {
-        contentDiv.innerHTML = '<p class="text-red-500">Ошибка загрузки</p>';
+    .catch(err => {
+        console.error(err);
+        contentDiv.innerHTML = '<p class="text-red-500">Ошибка обработки текста</p>';
     });
 };
 
-// Делаем функции глобальными
+// ========== ГЛОБАЛЬНЫЕ ФУНКЦИИ ==========
 window.showPartMenu = showPartMenu;
 window.updatePartOfSpeech = updatePartOfSpeech;
 window.applyPosHighlight = applyPosHighlight;
+
+// Инициализация
+console.log("✅ modes.js полностью загружен");

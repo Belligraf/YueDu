@@ -53,3 +53,45 @@
 .chinese-word.has-link {
     background-color: #a7f3d0 !important;
 }
+
+.reader-word {
+    display: inline !important;
+    margin: 0 !important;
+    padding: 2px 1px !important;
+}
+
+.reader-word:hover {
+    background-color: #dbeafe;
+    border-radius: 4px;
+}
+
+.custom-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #d1d5db #f3f4f6;
+}
+
+.custom-scroll::-webkit-scrollbar {
+    width: 6px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+    background-color: #d1d5db;
+    border-radius: 20px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+    background-color: #9ca3af;
+}
+.custom-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #9ca3af #f3f4f6;
+}
+
+.custom-scroll::-webkit-scrollbar {
+    width: 6px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+    background: #9ca3af;
+    border-radius: 20px;
+}
