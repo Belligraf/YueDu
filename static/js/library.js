@@ -1,15 +1,25 @@
-console.log("✅ library.js загружен");
+console.log("✅ library.js загружен (исправленная версия с редактированием)");
+
+let currentSelectedTextId = null;   // ← важно для модального окна выбора режима
 
 window.loadLibrary = async function() {
-    console.log("🟡 Загрузка библиотеки");
+    console.log("🟡 Загрузка библиотеки...");
 
     try {
         const res = await fetch('/api/library/');
-        if (!res.ok) return;
+        if (!res.ok) {
+            console.error("❌ Ошибка загрузки библиотеки, статус:", res.status);
+            return;
+        }
 
         const texts = await res.json();
+        console.log(`📚 Получено ${texts.length} текстов из БД`);
+
         const list = document.getElementById('libraryList');
-        if (!list) return;
+        if (!list) {
+            console.error("❌ #libraryList не найден");
+            return;
+        }
 
         if (!texts.length) {
             list.innerHTML = '<div class="text-gray-500 text-center p-4">📭 Пусто</div>';
@@ -17,151 +27,40 @@ window.loadLibrary = async function() {
         }
 
         list.innerHTML = '';
+
         texts.forEach(text => {
             const div = document.createElement('div');
             div.className = `library-item p-3 border rounded-lg mb-2 transition-colors ${window.currentEditId === text.id ? 'bg-blue-100 border-blue-500' : 'hover:bg-gray-50'}`;
             div.innerHTML = `
                 <div class="flex justify-between items-start gap-2">
-                    <div class="flex-1 cursor-pointer" style="word-break: break-word;" onclick="window.loadText(${text.id})">
-                        <div class="font-bold text-sm">📄 ${window.escapeHtml(text.title)}</div>
-                        <div class="text-xs text-gray-500 mt-1">${window.escapeHtml(text.content.slice(0, 80))}</div>
+                    <div class="flex-1 cursor-pointer" onclick="window.loadTextInMode(${text.id})">
+                        <div class="font-bold text-sm">📄 ${window.escapeHtml(text.title || 'Без названия')}</div>
+                        <div class="text-xs text-gray-500 mt-1 line-clamp-2">${window.escapeHtml((text.content || '').slice(0, 85))}</div>
                     </div>
-                    <button onclick="window.deleteText(${text.id}, event)" class="text-red-500 hover:text-red-700 flex-shrink-0" title="Удалить">🗑️</button>
+                    <div class="flex flex-col gap-1">
+                        <button onclick="window.showEditModalForId(${text.id}); event.stopImmediatePropagation();"
+                                class="text-amber-600 hover:text-amber-700 text-xs px-2 py-1" title="Редактировать">✏️</button>
+                        <button onclick="window.deleteText(${text.id}, event)"
+                                class="text-red-500 hover:text-red-700 text-xs px-2 py-1" title="Удалить">🗑️</button>
+                    </div>
                 </div>
             `;
             list.appendChild(div);
         });
 
-        console.log(`✅ Загружено ${texts.length} текстов`);
+        console.log("✅ Библиотека успешно отображена");
     } catch (e) {
-        console.error("Ошибка loadLibrary:", e);
+        console.error("💥 Критическая ошибка в loadLibrary:", e);
     }
 };
 
-window.loadText = async function(id) {
-    console.log(`🟡 Загрузка текста ID: ${id}`);
+// ====================== ЕДИНАЯ ЗАГРУЗКА ТЕКСТА ======================
+window.loadTextInMode = async function(id, preferredMode = 'parallel') {
+    console.log(`🔄 loadTextInMode → ID=${id}, режим=${preferredMode}`);
 
     try {
         const res = await fetch(`/api/library/${id}`);
-        if (!res.ok) throw new Error('Ошибка загрузки');
-
-        const text = await res.json();
-
-        window.currentOriginalText = text.content;
-        window.currentTranslationText = text.translation || '';
-        window.currentEditId = text.id;
-
-        // Заполняем поля
-        const inputText = document.getElementById('inputText');
-        const inputTranslation = document.getElementById('inputTranslation');
-        if (inputText) inputText.value = window.currentOriginalText;
-        if (inputTranslation) inputTranslation.value = window.currentTranslationText;
-
-        // ✅ ПРАВИЛЬНОЕ ИМЯ ФУНКЦИИ
-        if (window.loadMatchesFromDB) {
-            await window.loadMatchesFromDB();
-        } else {
-            console.warn("loadMatchesFromDB не найдена, пытаемся использовать loadMatches");
-            if (window.loadMatches) await window.loadMatches();
-        }
-
-        // Переключаем на параллельный режим
-        if (window.showTab) {
-            await window.showTab('parallel');
-        }
-
-        console.log(`✅ Загружен текст: ${text.title}`);
-    } catch (e) {
-        console.error("Ошибка loadText:", e);
-        alert('Ошибка загрузки текста: ' + e.message);
-    }
-};
-
-window.saveToLibrary = async function() {
-    if (!window.currentOriginalText) {
-        alert("Нет текста для сохранения");
-        return;
-    }
-
-    const title = prompt("Название:", new Date().toLocaleString());
-    if (!title) return;
-
-    try {
-        const res = await fetch('/api/library/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                title,
-                content: window.currentOriginalText,
-                translation: window.currentTranslationText
-            })
-        });
-
-        if (!res.ok) throw new Error("Ошибка сохранения");
-
-        const saved = await res.json();
-        window.currentEditId = saved.id;
-
-        if (window.saveMatchesToServer) {
-            await window.saveMatchesToServer();
-        }
-
-        alert("✅ Текст сохранен!");
-        window.loadLibrary();
-    } catch (e) {
-        console.error(e);
-        alert("❌ Ошибка: " + e.message);
-    }
-};
-
-window.deleteText = async function(id, event) {
-    event.stopPropagation(); // чтобы не вызывать загрузку текста
-    if (!confirm('Удалить этот текст? Все связи и части речи будут потеряны.')) return;
-    try {
-        const response = await fetch(`/api/library/${id}`, { method: 'DELETE' });
-        if (response.ok) {
-            alert('Текст удалён');
-            window.loadLibrary(); // обновить список
-            if (window.currentEditId === id) {
-                // если удалён открытый текст, очистить поля
-                window.currentOriginalText = '';
-                window.currentTranslationText = '';
-                window.currentEditId = null;
-                document.getElementById('inputText').value = '';
-                document.getElementById('inputTranslation').value = '';
-                const origDiv = document.getElementById('original-text');
-                const transDiv = document.getElementById('translation-text');
-                if (origDiv) origDiv.innerHTML = '';
-                if (transDiv) transDiv.innerHTML = '';
-            }
-        } else {
-            alert('Ошибка удаления');
-        }
-    } catch(e) { console.error(e); }
-};
-
-// ========== ВЫБОР РЕЖИМА ИЗ БИБЛИОТЕКИ ==========
-let currentSelectedTextId = null;
-
-window.loadText = function(id) {
-    currentSelectedTextId = id;
-    document.getElementById('modeSelectorModal').classList.remove('hidden');
-};
-
-window.closeModeSelector = function() {
-    document.getElementById('modeSelectorModal').classList.add('hidden');
-};
-
-window.openInReader = async function() {
-    window.closeModeSelector();
-
-    if (!currentSelectedTextId) return;
-
-    const id = currentSelectedTextId;
-
-    try {
-        const res = await fetch(`/api/library/${id}`);
-        if (!res.ok) throw new Error('Ошибка загрузки');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const textData = await res.json();
 
@@ -169,85 +68,130 @@ window.openInReader = async function() {
         window.currentTranslationText = textData.translation || '';
         window.currentEditId = textData.id;
 
-        // Надёжное переключение на Ридер
-        if (typeof window.showTab === 'function') {
-            await window.showTab('simple');
-        } else {
-            // Запасной вариант, если showTab ещё не загрузился
-            console.warn("showTab не готов, используем прямую вставку");
-            const container = document.getElementById('content-container');
-            if (container) {
-                const html = await (await fetch('/static/modes/simple.html')).text();
-                container.innerHTML = html;
-            }
-        }
+        currentSelectedTextId = id; // для совместимости с модальным окном
 
-        // Запускаем отображение текста
-        setTimeout(() => {
-            if (typeof window.processTextForReader === 'function') {
-                window.processTextForReader();
-            }
-        }, 300);
+        await window.showTab(preferredMode);
 
+        console.log(`✅ Текст #${id} успешно загружен`);
+    } catch (e) {
+        console.error("Ошибка loadTextInMode:", e);
+        alert("Не удалось загрузить текст: " + e.message);
+    }
+};
+
+// ====================== РЕДАКТИРОВАНИЕ ======================
+window.showEditModalForId = async function(id) {
+    if (!id) return;
+
+    try {
+        const res = await fetch(`/api/library/${id}`);
+        const text = await res.json();
+
+        window.currentOriginalText = text.content || '';
+        window.currentTranslationText = text.translation || '';
+        window.currentEditId = text.id;
+        currentSelectedTextId = id;
+
+        window.showEditModal();
+    } catch(e) {
+        console.error(e);
+        alert("Не удалось загрузить текст для редактирования");
+    }
+};
+
+window.showEditModal = function() {
+    const modal = document.getElementById('editTextModal');
+    if (!modal) return console.error("❌ editTextModal не найден");
+
+    document.getElementById('edit-title').value = 'Текст ' + (window.currentEditId || '');
+    document.getElementById('edit-original').value = window.currentOriginalText || '';
+    document.getElementById('edit-translation').value = window.currentTranslationText || '';
+    document.getElementById('edit-modal-id').textContent = `ID: ${window.currentEditId || '—'}`;
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+};
+
+window.closeEditModal = function() {
+    const modal = document.getElementById('editTextModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+};
+
+window.saveEditedText = async function() {
+    if (!window.currentEditId) return alert("Нет ID текста");
+
+    const title = document.getElementById('edit-title').value.trim() || 'Без названия';
+    const content = document.getElementById('edit-original').value.trim();
+    const translation = document.getElementById('edit-translation').value.trim();
+
+    if (!content) return alert("Оригинальный текст не может быть пустым");
+
+    try {
+        const res = await fetch(`/api/library/${window.currentEditId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, content, translation })
+        });
+
+        if (!res.ok) throw new Error("Ошибка сервера");
+
+        const updated = await res.json();
+        console.log("✅ Текст обновлён:", updated);
+
+        window.currentOriginalText = content;
+        window.currentTranslationText = translation;
+
+        alert("✅ Изменения сохранены!");
+        window.closeEditModal();
+        window.refreshCurrentMode();
+        window.loadLibrary(); // обновляем список
     } catch (e) {
         console.error(e);
-        alert("Не удалось открыть текст в режиме Ридер");
+        alert("❌ Ошибка сохранения: " + e.message);
     }
 };
 
-window.openInParallel = async function() {
-    window.closeModeSelector();
-    if (!currentSelectedTextId) return;
-    const id = currentSelectedTextId;
+// ====================== ВСПОМОГАТЕЛЬНЫЕ ======================
+window.refreshCurrentMode = function() {
+    console.log("🔄 refreshCurrentMode");
+    const tabName = document.querySelector('.tab-active')?.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
+    if (!tabName) return;
 
-    try {
-        const res = await fetch(`/api/library/${id}`);
-        const text = await res.json();
-
-        window.currentOriginalText = text.content || '';
-        window.currentTranslationText = text.translation || '';
-        window.currentEditId = text.id;
-
-        await window.showTab('parallel');
-    } catch (e) {
-        alert("Ошибка открытия Параллельного ридера");
+    if (tabName === 'parallel' && typeof window.initParallelMode === 'function') {
+        window.initParallelMode();
+    } else if (tabName === 'match' && typeof window.loadMatchView === 'function') {
+        window.loadMatchView();
+    } else if (tabName === 'simple' && typeof window.processTextForReader === 'function') {
+        window.processTextForReader();
     }
 };
 
-window.openInMatch = async function() {
-    window.closeModeSelector();
-    if (!currentSelectedTextId) {
-        console.error("❌ openInMatch: currentSelectedTextId пустой");
-        return;
-    }
+// Обратная совместимость
+window.loadText = window.loadTextInMode;
+window.openInReader = () => window.loadTextInMode(currentSelectedTextId || window.currentEditId, 'simple');
+window.openInParallel = () => window.loadTextInMode(currentSelectedTextId || window.currentEditId, 'parallel');
+window.openInMatch = () => window.loadTextInMode(currentSelectedTextId || window.currentEditId, 'match');
 
-    const id = currentSelectedTextId;
-    console.log(`🔄 openInMatch: начинаем загрузку текста ID=${id}`);
+window.deleteText = async function(id, event) {
+    event.stopImmediatePropagation();
+    if (!confirm('Удалить этот текст и все его связи?')) return;
 
     try {
-        const res = await fetch(`/api/library/${id}`);
-        console.log(`📡 Ответ от сервера: ${res.status}`);
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const text = await res.json();
-        console.log("✅ Текст успешно загружен:", text.title);
-
-        window.currentOriginalText = text.content || '';
-        window.currentTranslationText = text.translation || '';
-        window.currentEditId = text.id;
-
-        console.log("🔄 Переключаемся на вкладку 'match'...");
-
-        if (typeof window.showTab === 'function') {
-            await window.showTab('match');
-            console.log("✅ showTab('match') выполнен");
-        } else {
-            console.error("❌ window.showTab не найдена!");
+        await fetch(`/api/library/${id}`, { method: 'DELETE' });
+        alert('✅ Текст удалён');
+        window.loadLibrary();
+        if (window.currentEditId === id) {
+            window.currentEditId = null;
+            window.currentOriginalText = '';
+            window.currentTranslationText = '';
         }
-
-    } catch (e) {
-        console.error("💥 Ошибка в openInMatch:", e);
-        alert("Ошибка открытия режима Сопоставления: " + e.message);
+    } catch(e) {
+        console.error(e);
+        alert('Ошибка удаления');
     }
 };
+
+console.log("✅ library.js (исправленная) полностью готов");

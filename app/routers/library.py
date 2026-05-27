@@ -227,3 +227,32 @@ def delete_text(id: int, db: Session = Depends(get_db)):
     db.delete(text)
     db.commit()
     return {"message": "Text deleted"}
+
+
+@router.put("/{id}")
+@router.patch("/{id}")
+def update_text(id: int, text_data: dict, db: Session = Depends(get_db)):
+    """Обновление текста (title, content, translation) + пересоздание сегментов"""
+    text = db.query(UserText).filter(UserText.id == id).first()
+    if not text:
+        raise HTTPException(status_code=404, detail="Текст не найден")
+
+    # Обновляем только те поля, которые пришли
+    if "title" in text_data:
+        text.title = text_data["title"]
+    if "content" in text_data:
+        text.content = text_data["content"]
+    if "translation" in text_data:
+        text.translation = text_data["translation"]
+
+    db.commit()
+    db.refresh(text)
+
+    # Важно: пересоздаём сегменты после изменения текста
+    try:
+        create_text_segments(db, id)
+        print(f"✅ Сегменты для текста {id} пересозданы")
+    except Exception as e:
+        print(f"⚠️ Ошибка пересоздания сегментов: {e}")
+
+    return text

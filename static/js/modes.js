@@ -128,6 +128,30 @@ if (typeof window.showPartMenu !== 'function') {
         alert(`Выбрано слово: "${word}"\n\nМеню частей речи будет доступно после доработки.`);
     };
 }
+// ====================== ЕДИНЫЙ РЕНДЕРИНГ (вызывается из showTab) ======================
+window.refreshCurrentMode = window.refreshCurrentMode || function() {
+    console.log("🔄 refreshCurrentMode вызван из modes.js");
+    if (window.currentEditId && window.loadTextInMode) {
+        // Если текст уже загружен — просто перерендерим текущий режим
+    }
+};
+
+// Улучшаем showTab
+const originalShowTab = window.showTab;
+window.showTab = async function(tabName) {
+    await originalShowTab(tabName);
+
+    // После загрузки HTML режима сразу применяем текст если он есть
+    setTimeout(() => {
+        if (window.currentOriginalText && tabName === 'parallel') {
+            if (typeof window.initParallelMode === 'function') window.initParallelMode();
+        } else if (window.currentOriginalText && tabName === 'match') {
+            if (typeof window.loadMatchView === 'function') window.loadMatchView();
+        } else if (window.currentOriginalText && tabName === 'simple') {
+            if (typeof window.processTextForReader === 'function') window.processTextForReader();
+        }
+    }, 120);
+};
 
 // Инициализация
 console.log("✅ modes.js (общий) полностью загружен");
