@@ -216,19 +216,38 @@ window.openInParallel = async function() {
 
 window.openInMatch = async function() {
     window.closeModeSelector();
-    if (!currentSelectedTextId) return;
+    if (!currentSelectedTextId) {
+        console.error("❌ openInMatch: currentSelectedTextId пустой");
+        return;
+    }
+
     const id = currentSelectedTextId;
+    console.log(`🔄 openInMatch: начинаем загрузку текста ID=${id}`);
 
     try {
         const res = await fetch(`/api/library/${id}`);
+        console.log(`📡 Ответ от сервера: ${res.status}`);
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
         const text = await res.json();
+        console.log("✅ Текст успешно загружен:", text.title);
 
         window.currentOriginalText = text.content || '';
         window.currentTranslationText = text.translation || '';
         window.currentEditId = text.id;
 
-        await window.showTab('match');
+        console.log("🔄 Переключаемся на вкладку 'match'...");
+
+        if (typeof window.showTab === 'function') {
+            await window.showTab('match');
+            console.log("✅ showTab('match') выполнен");
+        } else {
+            console.error("❌ window.showTab не найдена!");
+        }
+
     } catch (e) {
-        alert("Ошибка открытия режима Сопоставления");
+        console.error("💥 Ошибка в openInMatch:", e);
+        alert("Ошибка открытия режима Сопоставления: " + e.message);
     }
 };
