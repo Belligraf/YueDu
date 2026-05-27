@@ -592,47 +592,24 @@ window.startParallelReading = async function() {
 };
 
 window.renderParallelReadingView = async function() {
-  const origContainer = document.getElementById('parallel-original-reading');
-  const transContainer = document.getElementById('parallel-translation-reading');
-  if (!origContainer || !transContainer) {
-    console.error("❌ Не найдены контейнеры для параллельного ридера");
-    return;
-  }
+    console.log("📺 renderParallelReadingView запущен");
 
-  // Сегментация китайского
-  let segmentedWords = [];
-  try {
-    const res = await fetch('/api/segment/segment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: window.currentOriginalText })
-    });
-    if (res.ok) {
-      const data = await res.json();
-      segmentedWords = data.words || [];
+    const origContainer = document.getElementById('parallel-original-reading');
+    const transContainer = document.getElementById('parallel-translation-reading');
+
+    if (!origContainer || !transContainer) {
+        console.error("❌ Контейнеры parallel-reading не найдены");
+        return;
     }
-  } catch (e) {
-    console.error(e);
-    segmentedWords = window.currentOriginalText.split('');
-  }
 
-  // Отрисовка оригинала (китайский)
-  window.renderChineseText(origContainer, segmentedWords, {
-    onRightClick: (e, idx, word) => {
-      e.preventDefault();
-      window.showTranslationFromDictionary(word);
-    },
-    highlightLinked: false
-  });
+    // Самый надёжный вызов
+    await window.displayText('parallel');
 
-  // Отрисовка перевода (русский)
-  window.renderRussianText(transContainer, window.currentTranslationText || '');
+    // Блюр перевода
+    window.isBlurred = true;
+    window.applyCurrentBlurState(transContainer);
 
-  // Блюр по умолчанию
-  window.isBlurred = true;
-  window.applyCurrentBlurState(transContainer);
-
-  console.log('✅ Параллельный ридер (режим чтения) успешно запущен');
+    console.log("✅ Параллельный ридер успешно отобразил текст из БД");
 };
 
 window.toggleParallelBlur = function() {
@@ -674,28 +651,18 @@ window.saveParallelToLibrary = async function() {
 
 // ====================== ИНИЦИАЛИЗАЦИЯ ПАРАЛЛЕЛЬНОГО РИДЕРА ======================
 window.initParallelMode = async function() {
-  console.log("🔄 initParallelMode запущен");
+    console.log("🔄 initParallelMode запущен");
 
-  const inputSection = document.getElementById('parallel-input-section');
-  const readingSection = document.getElementById('parallel-reading-section');
+    const inputSection = document.getElementById('parallel-input-section');
+    const readingSection = document.getElementById('parallel-reading-section');
 
-  // Если текст уже загружен из библиотеки — сразу открываем режим чтения
-  if (window.currentOriginalText && window.currentOriginalText.trim() !== '') {
-    console.log("📥 Загружен текст из библиотеки — сразу переходим в режим чтения");
-
-    // Заполняем поля (на случай, если пользователь нажмёт «Новая пара»)
-    const origInput = document.getElementById('parallel-original-input');
-    const transInput = document.getElementById('parallel-translation-input');
-    if (origInput) origInput.value = window.currentOriginalText;
-    if (transInput) transInput.value = window.currentTranslationText || '';
-
-    if (inputSection) inputSection.classList.add('hidden');
-    if (readingSection) readingSection.classList.remove('hidden');
-
-    await window.renderParallelReadingView();
-  } else {
-    // Новый текст — показываем форму ввода
-    if (inputSection) inputSection.classList.remove('hidden');
-    if (readingSection) readingSection.classList.add('hidden');
-  }
+    if (window.currentOriginalText && window.currentOriginalText.trim() !== '') {
+        console.log("📥 Есть сохранённый текст → сразу открываем режим чтения");
+        if (inputSection) inputSection.classList.add('hidden');
+        if (readingSection) readingSection.classList.remove('hidden');
+        await window.renderParallelReadingView();
+    } else {
+        if (inputSection) inputSection.classList.remove('hidden');
+        if (readingSection) readingSection.classList.add('hidden');
+    }
 };

@@ -1,166 +1,88 @@
-console.log("✅ renderer.js загружен — общие функции отрисовки");
+console.log("✅ renderer.js — УПРОЩЁННАЯ УНИВЕРСАЛЬНАЯ ОТРИСОВКА (сохраняет формат из БД)");
 
-// ======================================================
-// ОБЩИЕ ФУНКЦИИ ОТРИСОВКИ ТЕКСТА
-// Используются в parallel.js и matches.js
-// ======================================================
+// ====================== ГЛАВНАЯ ФУНКЦИЯ ======================
+window.displayText = function(mode = 'parallel') {
+    console.log(`📺 displayText → режим ${mode}`);
 
-/**
- * Отрисовывает китайский текст
- */
-window.renderChineseText = function(container, segmentedWords, options = {}) {
+    const origText = window.currentOriginalText || '';
+    const transText = window.currentTranslationText || '';
+
+    if (!origText) {
+        console.warn("⚠️ Нет currentOriginalText");
+        return;
+    }
+
+    if (mode === 'parallel') {
+        // === ПАРАЛЛЕЛЬНЫЙ РИДЕР ===
+        const origContainer = document.getElementById('parallel-original-reading');
+        const transContainer = document.getElementById('parallel-translation-reading');
+
+        if (origContainer) renderPreserveFormat(origContainer, origText, true);   // китайский + клики
+        if (transContainer) renderPreserveFormat(transContainer, transText, false); // русский
+
+    } else if (mode === 'match') {
+        const origContainer = document.getElementById('match-original');
+        const transContainer = document.getElementById('match-translation');
+        if (origContainer) renderPreserveFormat(origContainer, origText, true);
+        if (transContainer) renderPreserveFormat(transContainer, transText, false);
+
+    } else if (mode === 'simple') {
+        const container = document.getElementById('reader-content');
+        if (container) renderPreserveFormat(container, origText, true);
+    }
+
+    console.log("✅ Текст успешно отображён с сохранением оригинального форматирования");
+};
+
+
+// ====================== САМАЯ НАДЁЖНАЯ ФУНКЦИЯ ОТРИСОВКИ ======================
+function renderPreserveFormat(container, fullText, isChinese = true) {
     if (!container) return;
+
     container.innerHTML = '';
+
+    // Самое важное — сохраняем ВСЁ форматирование из БД
     container.style.whiteSpace = 'pre-wrap';
-    container.style.lineHeight = '1.8';
-    container.style.fontSize = '1.25rem';
+    container.style.wordBreak = 'break-word';
+    container.style.lineHeight = '1.9';
+    container.style.fontSize = isChinese ? '1.3rem' : '1.15rem';
+    container.style.padding = '28px';
+    container.style.backgroundColor = '#ffffff';
+    container.style.borderRadius = '16px';
+    container.style.boxShadow = '0 10px 15px -3px rgb(0 0 0 / 0.1)';
 
-    const {
-        onWordClick = null,
-        onRightClick = null,
-        highlightLinked = true
-    } = options;
+    if (!fullText) return;
 
-    let wordIndex = 0;
+    // Разбиваем по строкам, сохраняя все \n
+    const lines = fullText.split('\n');
 
-    (segmentedWords || []).forEach(token => {
-        if (/[\u4e00-\u9fff]/.test(token)) {
+    lines.forEach((line, lineIndex) => {
+        if (lineIndex > 0) {
+            const br = document.createElement('br');
+            container.appendChild(br);
+        }
+
+        if (isChinese) {
+            // Для китайского — оборачиваем каждое иероглиф в span (чтобы клик работал)
+            let html = '';
+            for (let char of line) {
+                if (/[\u4e00-\u9fff]/.test(char)) {
+                    html += `<span class="chinese-word" style="display:inline; margin:0 1px; padding:2px 4px; cursor:pointer;" onclick="window.showTranslationFromDictionary('${char}')">${char}</span>`;
+                } else {
+                    html += char === ' ' ? '&nbsp;' : char;
+                }
+            }
+            const tempDiv = document.createElement('span');
+            tempDiv.innerHTML = html;
+            container.appendChild(tempDiv);
+        }
+        else {
+            // Для русского — просто вставляем текст (можно кликать по словам позже)
             const span = document.createElement('span');
-            span.textContent = token;
-            span.className = 'chinese-word';
-            span.style.cssText = 'display:inline; margin:0; padding:2px 3px; cursor:pointer;';
-            span.setAttribute('data-idx', wordIndex);
-
-            if (onWordClick) {
-                span.onclick = (e) => {
-                    e.stopPropagation();
-                    onWordClick(token, wordIndex, span, e);
-                };
-            }
-
-            if (onRightClick) {
-                span.oncontextmenu = (e) => {
-                    e.preventDefault();
-                    onRightClick(e, wordIndex, token);
-                };
-            }
-
-            // Hover подсветка связанных русских слов
-            if (highlightLinked) {
-                span.onmouseenter = () => {
-                    if (window.currentMatches?.[wordIndex]) {
-                        const linked = window.currentMatches[wordIndex];
-                        document.querySelectorAll('.russian-word').forEach(ru => {
-                            if (linked.includes(parseInt(ru.getAttribute('data-idx')))) {
-                                ru.classList.add('temp-highlight');
-                            }
-                        });
-                    }
-                };
-                span.onmouseleave = () => {
-                    document.querySelectorAll('.russian-word').forEach(ru =>
-                        ru.classList.remove('temp-highlight')
-                    );
-                };
-            }
-
-            container.appendChild(span);
-            wordIndex++;
-        } else if (token === '\n') {
-            container.appendChild(document.createElement('br'));
-        } else {
-            const span = document.createElement('span');
-            span.textContent = token;
-            span.style.display = 'inline';
+            span.textContent = line;
             container.appendChild(span);
         }
     });
+}
 
-    window.currentWordsArray = segmentedWords?.filter(w => /[\u4e00-\u9fff]/.test(w)) || [];
-};
-
-/**
- * Отрисовывает русский текст
- */
-window.renderRussianText = function(container, translationText, options = {}) {
-    if (!container || !translationText) return;
-    container.innerHTML = '';
-    container.style.whiteSpace = 'pre-wrap';
-    container.style.lineHeight = '1.8';
-
-    const {
-        onWordClick = null,
-        highlightLinked = true
-    } = options;
-
-    let wordIndex = 0;
-    let currentWord = '';
-    window.currentTransArray = [];
-
-    for (let i = 0; i < translationText.length; i++) {
-        const char = translationText[i];
-
-        if (/[а-яА-Яa-zA-Z0-9]/.test(char)) {
-            currentWord += char;
-        } else {
-            if (currentWord) {
-                const span = document.createElement('span');
-                span.textContent = currentWord;
-                span.className = 'russian-word';
-                span.style.cssText = 'display:inline; margin:0; padding:2px 2px; cursor:pointer;';
-                span.setAttribute('data-idx', wordIndex);
-                window.currentTransArray[wordIndex] = currentWord;
-
-                if (onWordClick) {
-                    span.onclick = (e) => {
-                        e.stopPropagation();
-                        onWordClick(currentWord, wordIndex, span, e);
-                    };
-                }
-
-                if (highlightLinked) {
-                    span.onmouseenter = () => {
-                        if (window.currentMatches) {
-                            Object.entries(window.currentMatches).forEach(([chIdx, ruIds]) => {
-                                if (ruIds.includes(wordIndex)) {
-                                    const ch = document.querySelector(`.chinese-word[data-idx='${chIdx}']`);
-                                    if (ch) ch.classList.add('temp-highlight');
-                                }
-                            });
-                        }
-                    };
-                    span.onmouseleave = () => {
-                        document.querySelectorAll('.chinese-word').forEach(ch =>
-                            ch.classList.remove('temp-highlight')
-                        );
-                    };
-                }
-
-                container.appendChild(span);
-                wordIndex++;
-                currentWord = '';
-            }
-
-            if (char === ' ') {
-                const s = document.createElement('span');
-                s.innerHTML = '&nbsp;';
-                container.appendChild(s);
-            } else if (char === '\n') {
-                container.appendChild(document.createElement('br'));
-            } else {
-                const p = document.createElement('span');
-                p.textContent = char;
-                p.style.color = '#666';
-                container.appendChild(p);
-            }
-        }
-    }
-
-    if (currentWord) {
-        const span = document.createElement('span');
-        span.textContent = currentWord;
-        span.className = 'russian-word';
-        span.setAttribute('data-idx', wordIndex);
-        container.appendChild(span);
-    }
-};
+console.log("✅ renderer.js готов — теперь формат из БД сохраняется 100%");
