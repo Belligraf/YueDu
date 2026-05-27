@@ -38,7 +38,7 @@ window.currentEditId = window.currentEditId || null;
 window.isBlurred = true;
 window.highlightEnabled = true;
 
-// ====================== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК (главная функция) ======================
+// ====================== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК ======================
 window.showTab = async function(tabName) {
     console.log(`🔄 showTab: переключаемся на "${tabName}"`);
 
@@ -55,17 +55,15 @@ window.showTab = async function(tabName) {
         const html = await response.text();
         container.innerHTML = html;
 
-        setTimeout(() => {
+        setTimeout(async () => {
             const simpleMode = document.getElementById('simple-mode');
             const parallelMode = document.getElementById('parallel-mode');
             const matchMode = document.getElementById('match-mode');
 
-            // Скрываем все режимы
             if (simpleMode) simpleMode.classList.add('hidden');
             if (parallelMode) parallelMode.classList.add('hidden');
             if (matchMode) matchMode.classList.add('hidden');
 
-            // Показываем нужный
             if (tabName === 'simple' && simpleMode) {
                 simpleMode.classList.remove('hidden');
                 console.log("✅ Показан Простой ридер");
@@ -76,8 +74,12 @@ window.showTab = async function(tabName) {
             else if (tabName === 'parallel' && parallelMode) {
                 parallelMode.classList.remove('hidden');
                 console.log("✅ Показан Параллельный ридер");
-                if (window.currentOriginalText && typeof window.loadParallelView === 'function') {
-                    window.loadParallelView();
+
+                // ←←← ЭТО САМОЕ ВАЖНОЕ ИСПРАВЛЕНИЕ
+                if (typeof window.initParallelMode === 'function') {
+                    await window.initParallelMode();
+                } else {
+                    console.error("❌ initParallelMode не найдена!");
                 }
             }
             else if (tabName === 'match' && matchMode) {
@@ -85,11 +87,9 @@ window.showTab = async function(tabName) {
                 console.log("✅ Показан режим Сопоставления");
                 if (typeof window.loadMatchView === 'function') {
                     window.loadMatchView();
-                } else {
-                    console.warn("⚠️ loadMatchView ещё не загружена");
                 }
             }
-        }, 150);
+        }, 100);
 
     } catch (e) {
         console.error(`💥 Ошибка при загрузке ${tabName}:`, e);

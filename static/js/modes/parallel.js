@@ -570,3 +570,132 @@ window.applyCurrentBlurState = function(container) {
         container.classList.remove('blur-sm');
     }
 };
+
+window.startParallelReading = async function() {
+  const origInput = document.getElementById('parallel-original-input');
+  const transInput = document.getElementById('parallel-translation-input');
+
+  window.currentOriginalText = (origInput ? origInput.value.trim() : '') || '';
+  window.currentTranslationText = (transInput ? transInput.value.trim() : '') || '';
+
+  if (!window.currentOriginalText) {
+    alert('❌ Введите оригинальный китайский текст!');
+    return;
+  }
+
+  // Переключаем вид
+  document.getElementById('parallel-input-section').classList.add('hidden');
+  const readingSection = document.getElementById('parallel-reading-section');
+  readingSection.classList.remove('hidden');
+
+  await window.renderParallelReadingView();
+};
+
+window.renderParallelReadingView = async function() {
+  const origContainer = document.getElementById('parallel-original-reading');
+  const transContainer = document.getElementById('parallel-translation-reading');
+  if (!origContainer || !transContainer) {
+    console.error("❌ Не найдены контейнеры для параллельного ридера");
+    return;
+  }
+
+  // Сегментация китайского
+  let segmentedWords = [];
+  try {
+    const res = await fetch('/api/segment/segment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: window.currentOriginalText })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      segmentedWords = data.words || [];
+    }
+  } catch (e) {
+    console.error(e);
+    segmentedWords = window.currentOriginalText.split('');
+  }
+
+  // Отрисовка оригинала (китайский)
+  window.renderChineseText(origContainer, segmentedWords, {
+    onRightClick: (e, idx, word) => {
+      e.preventDefault();
+      window.showTranslationFromDictionary(word);
+    },
+    highlightLinked: false
+  });
+
+  // Отрисовка перевода (русский)
+  window.renderRussianText(transContainer, window.currentTranslationText || '');
+
+  // Блюр по умолчанию
+  window.isBlurred = true;
+  window.applyCurrentBlurState(transContainer);
+
+  console.log('✅ Параллельный ридер (режим чтения) успешно запущен');
+};
+
+window.toggleParallelBlur = function() {
+  const transContainer = document.getElementById('parallel-translation-reading');
+  if (!transContainer) return;
+
+  window.isBlurred = !window.isBlurred;
+
+  const btn = document.getElementById('parallel-blur-btn');
+  if (btn) {
+    btn.textContent = window.isBlurred
+      ? '👁️ Раскрыть перевод'
+      : '🙈 Скрыть перевод';
+  }
+
+  window.applyCurrentBlurState(transContainer);
+};
+
+window.restartParallelInput = function() {
+  // Возвращаемся к форме ввода
+  document.getElementById('parallel-reading-section').classList.add('hidden');
+  document.getElementById('parallel-input-section').classList.remove('hidden');
+
+  // Очищаем поля для удобства
+  const orig = document.getElementById('parallel-original-input');
+  const trans = document.getElementById('parallel-translation-input');
+  if (orig) orig.value = window.currentOriginalText || '';
+  if (trans) trans.value = window.currentTranslationText || '';
+};
+
+// Сохранение в библиотеку (использует уже существующую функцию)
+window.saveParallelToLibrary = async function() {
+  if (!window.currentOriginalText) {
+    alert("Нет текста для сохранения");
+    return;
+  }
+  await window.saveToLibrary();   // существующая функция из library.js
+};
+
+// ====================== ИНИЦИАЛИЗАЦИЯ ПАРАЛЛЕЛЬНОГО РИДЕРА ======================
+window.initParallelMode = async function() {
+  console.log("🔄 initParallelMode запущен");
+
+  const inputSection = document.getElementById('parallel-input-section');
+  const readingSection = document.getElementById('parallel-reading-section');
+
+  // Если текст уже загружен из библиотеки — сразу открываем режим чтения
+  if (window.currentOriginalText && window.currentOriginalText.trim() !== '') {
+    console.log("📥 Загружен текст из библиотеки — сразу переходим в режим чтения");
+
+    // Заполняем поля (на случай, если пользователь нажмёт «Новая пара»)
+    const origInput = document.getElementById('parallel-original-input');
+    const transInput = document.getElementById('parallel-translation-input');
+    if (origInput) origInput.value = window.currentOriginalText;
+    if (transInput) transInput.value = window.currentTranslationText || '';
+
+    if (inputSection) inputSection.classList.add('hidden');
+    if (readingSection) readingSection.classList.remove('hidden');
+
+    await window.renderParallelReadingView();
+  } else {
+    // Новый текст — показываем форму ввода
+    if (inputSection) inputSection.classList.remove('hidden');
+    if (readingSection) readingSection.classList.add('hidden');
+  }
+};
