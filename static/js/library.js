@@ -194,4 +194,32 @@ window.deleteText = async function(id, event) {
     }
 };
 
+// ====================== ЗАДВИГАЕМАЯ ПАНЕЛЬ БИБЛИОТЕКИ ======================
+window.libraryPanelOpen = true;
+
+window.toggleLibraryPanel = function() {
+    window.libraryPanelOpen = !window.libraryPanelOpen;
+
+    const container = document.getElementById('library-panel-container');
+    if (!container) return;
+
+    if (window.libraryPanelOpen) {
+        container.style.transform = 'translateX(0)';
+    } else {
+        container.style.transform = 'translateX(100%)';
+    }
+
+    console.log("📚 Панель библиотеки:", window.libraryPanelOpen ? "открыта" : "закрыта");
+};
+
+// Автоматически открывать панель при загрузке
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        const container = document.getElementById('library-panel-container');
+        if (container) {
+            container.style.transform = 'translateX(0)';
+        }
+    }, 300);
+});
+
 console.log("✅ library.js (исправленная) полностью готов");

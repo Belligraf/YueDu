@@ -31,16 +31,30 @@
     <div id="content-container"></div>
 
     <!-- БИБЛИОТЕКА СПРАВА -->
-    <div class="fixed right-0 top-0 h-full w-64 bg-white shadow-xl z-40 overflow-y-auto" id="libraryPanel">
-        <div class="p-4 border-b">
-            <div class="flex justify-between items-center">
-                <h3 class="font-bold text-lg text-gray-800">📚 Моя библиотека</h3>
-                <button onclick="loadLibrary()" class="text-blue-500 text-sm">🔄 Обновить</button>
+    <div class="fixed right-0 top-0 h-full z-40 transition-all duration-300" id="library-panel-container">
+        <button onclick="window.toggleLibraryPanel()"
+                class="absolute -left-10 top-6 bg-white shadow-lg rounded-l-2xl px-3 py-6 text-xl hover:bg-gray-100 border border-r-0 border-gray-200 flex items-center justify-center w-10 h-12 z-50">
+            📚
+        </button>
+
+        <div id="libraryPanel" class="h-full w-72 bg-white shadow-2xl flex flex-col border-l border-gray-200 overflow-hidden">
+            <div class="p-4 border-b flex justify-between items-center bg-gray-50">
+                <h3 class="font-bold text-lg text-gray-800 flex items-center gap-2">
+                    📚 Моя библиотека
+                </h3>
+                <button onclick="window.toggleLibraryPanel()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
             </div>
-            <p class="text-xs text-gray-500 mt-1">Кликни для загрузки</p>
-        </div>
-        <div id="libraryList" class="overflow-y-auto h-[calc(100%-80px)] p-3 space-y-2">
-            <div class="text-gray-500 text-center p-4">Загрузка...</div>
+
+            <div class="p-3 border-b">
+                <button onclick="loadLibrary()"
+                        class="w-full text-left text-blue-600 hover:text-blue-700 text-sm flex items-center gap-1">
+                    🔄 Обновить список
+                </button>
+            </div>
+
+            <div id="libraryList" class="flex-1 overflow-y-auto p-3 space-y-2 custom-scroll">
+                <!-- сюда загружаются тексты -->
+            </div>
         </div>
     </div>
 
