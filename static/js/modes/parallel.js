@@ -592,24 +592,16 @@ window.startParallelReading = async function() {
 };
 
 window.renderParallelReadingView = async function() {
-    console.log("📺 renderParallelReadingView запущен");
+    console.log("📺 renderParallelReadingView — отображаем текст");
 
-    const origContainer = document.getElementById('parallel-original-reading');
-    const transContainer = document.getElementById('parallel-translation-reading');
+    await window.displayText('parallel');   // ← твоя хорошая функция
 
-    if (!origContainer || !transContainer) {
-        console.error("❌ Контейнеры parallel-reading не найдены");
-        return;
-    }
-
-    // Самый надёжный вызов
-    await window.displayText('parallel');
-
-    // Блюр перевода
+    // Блюр
     window.isBlurred = true;
-    window.applyCurrentBlurState(transContainer);
+    const trans = document.getElementById('parallel-translation-reading');
+    if (trans) window.applyCurrentBlurState(trans);
 
-    console.log("✅ Параллельный ридер успешно отобразил текст из БД");
+    console.log("✅ Параллельный ридер теперь показывает текст");
 };
 
 window.toggleParallelBlur = function() {
@@ -651,18 +643,18 @@ window.saveParallelToLibrary = async function() {
 
 // ====================== ИНИЦИАЛИЗАЦИЯ ПАРАЛЛЕЛЬНОГО РИДЕРА ======================
 window.initParallelMode = async function() {
-    console.log("🔄 initParallelMode запущен");
+    console.log("🔄 initParallelMode — принудительный запуск");
 
-    const inputSection = document.getElementById('parallel-input-section');
-    const readingSection = document.getElementById('parallel-reading-section');
+    const input = document.getElementById('parallel-input-section');
+    const reading = document.getElementById('parallel-reading-section');
 
     if (window.currentOriginalText && window.currentOriginalText.trim() !== '') {
-        console.log("📥 Есть сохранённый текст → сразу открываем режим чтения");
-        if (inputSection) inputSection.classList.add('hidden');
-        if (readingSection) readingSection.classList.remove('hidden');
+        console.log("✅ Есть сохранённый текст → сразу показываем режим чтения");
+        if (input) input.classList.add('hidden');
+        if (reading) reading.classList.remove('hidden');
         await window.renderParallelReadingView();
     } else {
-        if (inputSection) inputSection.classList.remove('hidden');
-        if (readingSection) readingSection.classList.add('hidden');
+        if (input) input.classList.remove('hidden');
+        if (reading) reading.classList.add('hidden');
     }
 };
