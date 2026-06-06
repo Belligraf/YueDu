@@ -240,47 +240,40 @@ for (let i = 0; i < wordsToShow.length; i++) {
 // ======================================================
 
 window.highlightLinkedWords = function() {
-    console.log("🔄 highlightLinkedWords с цветами POS");
-    const cfg = window.colorConfig;
+    const cfg = window.colorConfig || {};
 
-    document.querySelectorAll('#original-text .chinese-word').forEach(span => {
+    // Ищем все chinese-word на странице (работает и в parallel и в match)
+    document.querySelectorAll('.chinese-word').forEach(span => {
         const idx = parseInt(span.getAttribute('data-idx'));
         if (isNaN(idx)) return;
-
-        const isLinked = window.currentMatches?.[idx] && window.currentMatches[idx].length > 0;
+        const isLinked = window.currentMatches?.[idx]?.length > 0;
         const pos = window.currentWordsPos?.[idx];
-
         if (isLinked) {
-            if (pos && pos !== 'unknown' && cfg.posColors[pos]) {
-                span.style.backgroundColor = cfg.posColors[pos];
-            } else {
-                span.style.backgroundColor = cfg.linked;
-            }
-            span.style.borderBottom = `2px solid ${cfg.linkedBorder}`;
+            span.style.backgroundColor = (pos && pos !== 'unknown' && cfg.posColors?.[pos])
+                ? cfg.posColors[pos] : (cfg.linked || '#a7f3d0');
+            span.style.borderBottom = `2px solid ${cfg.linkedBorder || '#10b981'}`;
         } else {
-            if (pos && pos !== 'unknown' && cfg.posColors[pos]) {
-                span.style.backgroundColor = cfg.posColors[pos];
-                span.style.borderBottom = '';
-            } else {
-                span.style.backgroundColor = '';
-                span.style.borderBottom = '';
-            }
+            span.style.backgroundColor = (pos && pos !== 'unknown' && cfg.posColors?.[pos])
+                ? cfg.posColors[pos] : '';
+            span.style.borderBottom = '';
         }
     });
 
-    document.querySelectorAll('#translation-text .russian-word').forEach(span => {
+    // Ищем все russian-word на странице
+    document.querySelectorAll('.russian-word').forEach(span => {
         const idx = parseInt(span.getAttribute('data-idx'));
         if (isNaN(idx)) return;
-
-        const isLinked = Object.values(window.currentMatches || {})
-                           .some(arr => arr && arr.includes(idx));
-
-        if (isLinked) {
-            const color = (typeof getColorForRussianWord === 'function')
-                ? getColorForRussianWord(idx)
-                : cfg.linked;
-            span.style.backgroundColor = color || cfg.linked;
-            span.style.borderBottom = `2px solid ${cfg.linkedBorder}`;
+        const linkedChIdxs = Object.entries(window.currentMatches || {})
+            .filter(([, arr]) => arr && arr.includes(idx))
+            .map(([ci]) => parseInt(ci));
+        if (linkedChIdxs.length > 0) {
+            let color = cfg.linked || '#a7f3d0';
+            for (const ci of linkedChIdxs) {
+                const pos = window.currentWordsPos?.[ci];
+                if (pos && pos !== 'unknown' && cfg.posColors?.[pos]) { color = cfg.posColors[pos]; break; }
+            }
+            span.style.backgroundColor = color;
+            span.style.borderBottom = `2px solid ${cfg.linkedBorder || '#10b981'}`;
         } else {
             span.style.backgroundColor = '';
             span.style.borderBottom = '';
@@ -334,7 +327,7 @@ window.loadMatchesFromDB = async function() {
         }
 
         const data = await response.json();
-        console.log("Получены данные matches:", data);
+        console.log("Получены данные matches: words=", data?.words?.length, "translations=", data?.translations?.length);
 
         if (!data || !data.words) {
             console.warn("Данные matches пустые или null");
@@ -529,13 +522,69 @@ window.breakSelectedLinks = function() {
     }
 };
 
-// Заглушка, если saveAllLinksToDB ещё не определена
-if (typeof window.saveAllLinksToDB !== 'function') {
-    window.saveAllLinksToDB = async function() {
-        console.log("saveAllLinksToDB вызвана (заглушка)");
-        if (window.loadMatchesFromDB) await window.loadMatchesFromDB();
-    };
-}
+// ====================== СОХРАНЕНИЕ СВЯЗЕЙ В БД ======================
+window.saveAllLinksToDB = async function() {
+    if (!window.currentEditId) {
+        console.warn("saveAllLinksToDB: нет currentEditId");
+        return;
+    }
+    try {
+        const chineseSpans = document.querySelectorAll(
+            '#match-original .chinese-word, #original-text .chinese-word, #parallel-original-reading .chinese-word'
+        );
+        const words = [];
+        chineseSpans.forEach(span => {
+            const idx = parseInt(span.getAttribute('data-idx'));
+            if (isNaN(idx)) return;
+            words[idx] = {
+                word: span.textContent.trim(),
+                part_of_speech: window.currentWordsPos?.[idx] || null
+            };
+        });
+
+        const russianSpans = document.querySelectorAll(
+            '#match-translation .russian-word, #translation-text .russian-word, #parallel-translation-reading .russian-word'
+        );
+        const translations = [];
+        russianSpans.forEach(span => {
+            const idx = parseInt(span.getAttribute('data-idx'));
+            if (isNaN(idx)) return;
+            translations[idx] = { phrase: span.textContent.trim() };
+        });
+
+        const wordsList = words.filter(Boolean);
+        const translationsList = translations.filter(Boolean);
+
+        const associations = [];
+        Object.entries(window.currentMatches || {}).forEach(([chPos, ruPositions]) => {
+            if (!ruPositions || !ruPositions.length) return;
+            associations.push({
+                word_position: parseInt(chPos),
+                translation_positions: ruPositions
+            });
+        });
+
+        console.log("💾 Сохраняем:", wordsList.length, "слов,", translationsList.length, "переводов,", associations.length, "связей");
+
+        const saveResp = await fetch(`/api/library/${window.currentEditId}/matches`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                words: wordsList,
+                translations: translationsList,
+                associations: associations
+            })
+        });
+
+        if (saveResp.ok) {
+            console.log("✅ Связи сохранены в БД");
+        } else {
+            console.error("Ошибка сохранения:", saveResp.status, await saveResp.text());
+        }
+    } catch (e) {
+        console.error("saveAllLinksToDB ошибка:", e);
+    }
+};
 // ======================================================
 // БЛЮР ПЕРЕВОДА (кнопка "Скрыть перевод")
 // ======================================================
