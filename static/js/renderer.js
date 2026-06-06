@@ -8,14 +8,15 @@ window.displayExactText = function(containerId, text, isChineseSide = true) {
         white-space: pre-wrap !important;
         word-break: break-word !important;
         overflow-wrap: break-word !important;
-        line-height: 1.85 !important;
-        font-size: 1.38rem;
-        padding: 28px;
+        line-height: 1.7 !important;
+        font-size: 1.32rem;
+        padding: 20px;
         background: white;
         border-radius: 16px;
-        min-height: 480px;
+        min-height: 420px;
         max-width: 100%;
         overflow-x: auto;
+        letter-spacing: normal;
         display: block;
     `;
 
@@ -24,15 +25,12 @@ window.displayExactText = function(containerId, text, isChineseSide = true) {
         return;
     }
 
+    let chIdx = 0;
     let html = '';
     for (let char of text) {
         if (/[\u4e00-\u9fff]/.test(char)) {
-            html += `<span class="chinese-word" data-idx="${html.length}"
-                        onclick="window.showTranslationFromDictionary('${char}', event); event.stopImmediatePropagation();"
-                        oncontextmenu="event.preventDefault(); if(window.showPartMenu) window.showPartMenu(event.clientX, event.clientY, 0, '${char}');"
-                        style="display: inline !important; margin: 0 !important; padding: 0 1px !important;">
-                        ${char}
-                     </span>`;
+            const idx = chIdx++;
+            html += `<span class="chinese-word" data-idx="${idx}" onclick="window.showTranslationFromDictionary('${char}', event); event.stopImmediatePropagation();" oncontextmenu="event.preventDefault(); if(window.showPartMenu) window.showPartMenu(event.clientX, event.clientY, ${idx}, '${char}');">${char}</span>`;
         } else if (char === '\n') {
             html += '<br>';
         } else if (char === ' ') {
