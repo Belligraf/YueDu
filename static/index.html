@@ -170,6 +170,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         console.log("✅ YueDu полностью запущен");
     });
+    setTimeout(() => {
+        window.loadLibrary();
+        const libPanel = document.getElementById('library-panel-container');
+        if (libPanel) libPanel.style.right = '0px';
+        window.formatAllText();
+    }, 500);
     </script>
 </body>
 </html>

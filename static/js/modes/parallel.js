@@ -591,17 +591,12 @@ window.startParallelReading = async function() {
   await window.renderParallelReadingView();
 };
 
-window.renderParallelReadingView = async function() {
-    console.log("📺 renderParallelReadingView — отображаем текст");
-
-    await window.displayText('parallel');   // ← твоя хорошая функция
-
-    // Блюр
+window.renderParallelReadingView = function() {
+    console.log("📺 renderParallelReadingView — чистый рендер");
+    window.formatAllText();           // ← главное
     window.isBlurred = true;
     const trans = document.getElementById('parallel-translation-reading');
     if (trans) window.applyCurrentBlurState(trans);
-
-    console.log("✅ Параллельный ридер теперь показывает текст");
 };
 
 window.toggleParallelBlur = function() {

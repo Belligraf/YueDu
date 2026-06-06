@@ -95,3 +95,17 @@
     background: #9ca3af;
     border-radius: 20px;
 }
+
+.chinese-word, .reader-word {
+    display: inline !important;
+    white-space: normal !important;
+    margin: 0 2px !important;
+    padding: 1px 3px !important;
+    line-height: 1.1 !important;
+    vertical-align: baseline !important;
+}
+
+#match-original, #parallel-original-reading, #reader-content, #parallel-translation-reading, #match-translation {
+    word-break: keep-all !important;
+    overflow-wrap: normal !important;
+}

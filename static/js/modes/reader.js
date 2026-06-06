@@ -55,51 +55,21 @@ window.processTextForReader = function() {
     const contentDiv = document.getElementById('reader-content');
     if (!contentDiv) return;
 
-    const text = window.currentOriginalText || '';
-    if (!text) return;
-
-    fetch('/api/segment/segment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: text })
-    })
-    .then(r => r.json())
-    .then(data => {
-        let html = '';
-        (data.words || []).forEach(token => {
-            if (/[\u4e00-\u9fff]/.test(token)) {
-                html += `<span class="reader-word"
-                            style="display:inline; margin:0; padding:2px 1px; cursor:pointer;"
-                            onclick="window.showTranslationFromDictionary('${token.replace(/'/g, "\\'")}')">
-                            ${token}
-                        </span>`;
-            } else if (token === '\n') {
-                html += '<br><br>';
-            } else {
-                html += token;
-            }
-        });
-        contentDiv.innerHTML = html;
-    })
-    .catch(err => {
-        console.error(err);
-        contentDiv.innerHTML = '<p class="text-red-500">Ошибка обработки текста</p>';
-    });
+    if (window.currentOriginalText && window.currentOriginalText.trim() !== '') {
+        // Используем единый точный рендерер как в Parallel и Match
+        window.displayExactText('reader-content', window.currentOriginalText, true);
+    } else {
+        contentDiv.innerHTML = '';
+    }
 };
 
 // ========== ПОКАЗ ПЕРЕВОДА (простой попап) ==========
-window.showTranslationFromDictionary = async function(word) {
+window.showTranslationFromDictionary = async function(word, event = null) {
     try {
         const res = await fetch(`/api/dictionary/translate/${encodeURIComponent(word)}`);
         const data = await res.json();
-
-        let translationText = "Перевод не найден";
-        if (data.translation) {
-            translationText = data.translation;
-        }
-
-        showSimpleTranslationPopup(word, translationText);
-
+        const translationText = data.translation || "Перевод не найден";
+        window.showTranslationPopup(word, [translationText], false, event ? event.clientX : null, event ? event.clientY : null);
     } catch (e) {
         console.error(e);
         showSimpleTranslationPopup(word, "Ошибка при получении перевода");

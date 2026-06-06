@@ -38,54 +38,7 @@ window.currentEditId = window.currentEditId || null;
 window.isBlurred = true;
 window.highlightEnabled = true;
 
-// ====================== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК ======================
-window.showTab = async function(tabName) {
-    console.log(`🔄 showTab: переключаемся на "${tabName}"`);
 
-    const container = document.getElementById('content-container');
-    if (!container) return;
-
-    try {
-        const response = await fetch(`/static/modes/${tabName}.html`);
-        const html = await response.text();
-        container.innerHTML = html;
-
-        // Даём DOM полностью построиться
-        await new Promise(r => setTimeout(r, 80));
-
-        if (window.currentOriginalText && window.currentOriginalText.trim() !== '') {
-            console.log(`📥 Найден сохранённый текст (${window.currentOriginalText.length} символов) — показываем в режиме ${tabName}`);
-
-            if (tabName === 'parallel') {
-                // Принудительно переключаем на режим ЧТЕНИЯ
-                const inputSection = document.getElementById('parallel-input-section');
-                const readingSection = document.getElementById('parallel-reading-section');
-
-                if (inputSection) inputSection.classList.add('hidden');
-                if (readingSection) readingSection.classList.remove('hidden');
-
-                // Главный вызов
-                if (typeof window.renderParallelReadingView === 'function') {
-                    await window.renderParallelReadingView();
-                } else if (typeof window.displayText === 'function') {
-                    await window.displayText('parallel');
-                }
-            }
-            else if (tabName === 'match') {
-                if (typeof window.loadMatchView === 'function') window.loadMatchView();
-                else if (typeof window.displayText === 'function') window.displayText('match');
-            }
-            else if (tabName === 'simple') {
-                if (typeof window.processTextForReader === 'function') window.processTextForReader();
-                else if (typeof window.displayText === 'function') window.displayText('simple');
-            }
-        }
-
-        console.log(`✅ Режим ${tabName} загружен`);
-    } catch (e) {
-        console.error("Ошибка showTab:", e);
-    }
-};
 
 // ========== ЗАГРУЗКА ТЕКСТА ИЗ БИБЛИОТЕКИ ==========
 window.loadTextFromLibrary = async function(id) {
@@ -125,27 +78,9 @@ window.refreshCurrentMode = window.refreshCurrentMode || function() {
         // Если текст уже загружен — просто перерендерим текущий режим
     }
 };
-
-// Улучшаем showTab
-const originalShowTab = window.showTab;
+// ====================== ЧИСТЫЙ И РАБОЧИЙ showTab ======================
 window.showTab = async function(tabName) {
-    await originalShowTab(tabName);
-
-    // После загрузки HTML режима сразу применяем текст если он есть
-    setTimeout(() => {
-        if (window.currentOriginalText && tabName === 'parallel') {
-            if (typeof window.initParallelMode === 'function') window.initParallelMode();
-        } else if (window.currentOriginalText && tabName === 'match') {
-            if (typeof window.loadMatchView === 'function') window.loadMatchView();
-        } else if (window.currentOriginalText && tabName === 'simple') {
-            if (typeof window.processTextForReader === 'function') window.processTextForReader();
-        }
-    }, 120);
-};
-
-// ====================== ЕДИНЫЙ ВХОД ДЛЯ ОТРИСОВКИ ======================
-window.showTab = async function(tabName) {
-    console.log(`🔄 showTab("${tabName}")`);
+    console.log(`🔄 showTab("${tabName}") — АГРЕССИВНЫЙ ФИНАЛЬНЫЙ ВАРИАНТ`);
 
     const container = document.getElementById('content-container');
     if (!container) return;
@@ -153,31 +88,26 @@ window.showTab = async function(tabName) {
     const html = await (await fetch(`/static/modes/${tabName}.html`)).text();
     container.innerHTML = html;
 
-    await new Promise(r => setTimeout(r, 100)); // даём HTML загрузиться
+    await new Promise(r => setTimeout(r, 300)); // даём HTML полностью загрузиться
 
+    // Принудительно рисуем текст из БД во всех режимах
     if (window.currentOriginalText && window.currentOriginalText.trim() !== '') {
-        console.log("📥 Есть текст в памяти → показываем готовый режим");
-
-        if (tabName === 'parallel') {
-            // ЖЁСТКОЕ ПРИНУДИТЕЛЬНОЕ ПЕРЕКЛЮЧЕНИЕ В РЕЖИМ ЧТЕНИЯ
-            document.getElementById('parallel-input-section')?.classList.add('hidden');
-            const reading = document.getElementById('parallel-reading-section');
-            if (reading) reading.classList.remove('hidden');
-
-            // Главный вызов
-            if (typeof window.renderParallelReadingView === 'function') {
-                window.renderParallelReadingView();
-            }
-        }
-        else if (tabName === 'match') {
-            if (typeof window.loadMatchView === 'function') window.loadMatchView();
-        }
-        else if (tabName === 'simple') {
-            if (typeof window.processTextForReader === 'function') window.processTextForReader();
-        }
+        window.formatAllText();
     }
 
-    console.log(`✅ ${tabName} загружен`);
+    if (tabName === 'match' && typeof window.loadMatchView === 'function') {
+        window.loadMatchView();
+    }
+    if (tabName === 'parallel') {
+        document.getElementById('parallel-input-section')?.classList.add('hidden');
+        document.getElementById('parallel-reading-section')?.classList.remove('hidden');
+        if (typeof window.renderParallelReadingView === 'function') window.renderParallelReadingView();
+    }
+    if (tabName === 'simple') {
+        if (typeof window.processTextForReader === 'function') window.processTextForReader();
+    }
+
+    console.log(`✅ ${tabName} полностью загружен с нормальным текстом`);
 };
 
 // Инициализация
